@@ -1,0 +1,16 @@
+{
+  "name": "타닥 가계부",
+  "short_name": "타닥 가계부",
+  "description": "계산기로 타닥타닥 입력하는 투명 바인더 가계부. 기록은 내 기기에만 저장돼요.",
+  "lang": "ko",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#F5F6F9",
+  "theme_color": "#F5F6F9",
+  "icons": [
+    {"src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png"},
+    {"src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png"},
+    {"src": "icons/icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable"}
+  ]
+}
