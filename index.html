@@ -30,7 +30,7 @@
   --shadow:0 24px 50px -28px rgba(70,80,120,.45), 0 2px 6px rgba(70,80,120,.05);
   --hand:"Gaegu","Nanum Pen Script",cursive; --hand-en:"Caveat","Gaegu",cursive; --sans:"Gothic A1","Apple SD Gothic Neo","Malgun Gothic",system-ui,sans-serif; --lcd:"DotGothic16",ui-monospace,monospace;
 }
-@media (prefers-color-scheme: dark){ :root:not([data-theme="light"]){
+@media (prefers-color-scheme: dark){ :root[data-app-theme="auto"]{
   color-scheme:dark;
   --desk:#15161B; --desk-2:#1D1F26; --ink:#EEEFF4; --ink-2:#B3B6C3; --ink-3:#7C8091; --line:#30333D; --rule:#8E92A2;
   --blob1:#1D2440; --blob2:#291F3C; --blob3:#15302A;
@@ -45,7 +45,7 @@
   --b10k:#7E7358; --b10k-ink:#F4ECD8; --b5k:#645A86; --b5k-ink:#ECE6FA; --b1k:#4B6386; --b1k-ink:#DDE8F8;
   --shadow:0 24px 50px -24px rgba(0,0,0,.75);
 }}
-:root[data-theme="dark"]{
+:root[data-app-theme="dark"]{
   color-scheme:dark;
   --desk:#15161B; --desk-2:#1D1F26; --ink:#EEEFF4; --ink-2:#B3B6C3; --ink-3:#7C8091; --line:#30333D; --rule:#8E92A2;
   --blob1:#1D2440; --blob2:#291F3C; --blob3:#15302A;
@@ -159,11 +159,11 @@ button{cursor:pointer}
 .calc[data-skin="clear"] .key:active,.calc[data-skin="clear"] .key.hit{transform:translateY(3px);
   box-shadow:inset 0 1px 0 #fff, inset 0 -2px 0 rgba(200,208,222,.3), 0 1px 0 rgba(176,186,204,.5), 0 3px 6px -2px rgba(60,72,110,.2)}
 .calc[data-skin="clear"] .brandmark{color:var(--ink-2)}
-:root[data-theme="dark"] .calc[data-skin="clear"]{--kt:#D5DAE4;background:linear-gradient(150deg,rgba(255,255,255,.16),rgba(255,255,255,.05) 40%,rgba(160,175,205,.1));border-color:rgba(255,255,255,.25);box-shadow:inset 0 0 0 7px rgba(255,255,255,.05), inset 0 0 0 8px rgba(255,255,255,.1), 0 11px 0 -2px rgba(255,255,255,.06), 0 38px 50px -24px rgba(0,0,0,.8)}
-:root[data-theme="dark"] .calc[data-skin="clear"] .key{border-color:rgba(255,255,255,.28);background:linear-gradient(to bottom,rgba(255,255,255,.2),rgba(255,255,255,.05) 45%,rgba(255,255,255,.08));box-shadow:inset 0 1px 0 rgba(255,255,255,.3), 0 5px 0 rgba(255,255,255,.08), 0 9px 12px -3px rgba(0,0,0,.5)}
+:root[data-app-theme="dark"] .calc[data-skin="clear"]{--kt:#D5DAE4;background:linear-gradient(150deg,rgba(255,255,255,.16),rgba(255,255,255,.05) 40%,rgba(160,175,205,.1));border-color:rgba(255,255,255,.25);box-shadow:inset 0 0 0 7px rgba(255,255,255,.05), inset 0 0 0 8px rgba(255,255,255,.1), 0 11px 0 -2px rgba(255,255,255,.06), 0 38px 50px -24px rgba(0,0,0,.8)}
+:root[data-app-theme="dark"] .calc[data-skin="clear"] .key{border-color:rgba(255,255,255,.28);background:linear-gradient(to bottom,rgba(255,255,255,.2),rgba(255,255,255,.05) 45%,rgba(255,255,255,.08));box-shadow:inset 0 1px 0 rgba(255,255,255,.3), 0 5px 0 rgba(255,255,255,.08), 0 9px 12px -3px rgba(0,0,0,.5)}
 @media (prefers-color-scheme: dark){
-  :root:not([data-theme="light"]) .calc[data-skin="clear"]{--kt:#D5DAE4;background:linear-gradient(150deg,rgba(255,255,255,.16),rgba(255,255,255,.05) 40%,rgba(160,175,205,.1));border-color:rgba(255,255,255,.25);box-shadow:inset 0 0 0 7px rgba(255,255,255,.05), inset 0 0 0 8px rgba(255,255,255,.1), 0 11px 0 -2px rgba(255,255,255,.06), 0 38px 50px -24px rgba(0,0,0,.8)}
-  :root:not([data-theme="light"]) .calc[data-skin="clear"] .key{border-color:rgba(255,255,255,.28);background:linear-gradient(to bottom,rgba(255,255,255,.2),rgba(255,255,255,.05) 45%,rgba(255,255,255,.08));box-shadow:inset 0 1px 0 rgba(255,255,255,.3), 0 5px 0 rgba(255,255,255,.08), 0 9px 12px -3px rgba(0,0,0,.5)}
+  :root[data-app-theme="auto"] .calc[data-skin="clear"]{--kt:#D5DAE4;background:linear-gradient(150deg,rgba(255,255,255,.16),rgba(255,255,255,.05) 40%,rgba(160,175,205,.1));border-color:rgba(255,255,255,.25);box-shadow:inset 0 0 0 7px rgba(255,255,255,.05), inset 0 0 0 8px rgba(255,255,255,.1), 0 11px 0 -2px rgba(255,255,255,.06), 0 38px 50px -24px rgba(0,0,0,.8)}
+  :root[data-app-theme="auto"] .calc[data-skin="clear"] .key{border-color:rgba(255,255,255,.28);background:linear-gradient(to bottom,rgba(255,255,255,.2),rgba(255,255,255,.05) 45%,rgba(255,255,255,.08));box-shadow:inset 0 1px 0 rgba(255,255,255,.3), 0 5px 0 rgba(255,255,255,.08), 0 9px 12px -3px rgba(0,0,0,.5)}
 }
 
 /* 입력 카드 */
@@ -391,8 +391,8 @@ textarea.field{height:auto;padding:10px 12px;resize:vertical;font-family:var(--h
 /* 공개판 추가: 원화 지폐, 첫 실행, 백업 알림 */
 .bill.jpy-10000{--bc:var(--b10k);--bi:var(--b10k-ink)} .bill.jpy-5000{--bc:var(--b5k);--bi:var(--b5k-ink)} .bill.jpy-1000{--bc:var(--b1k);--bi:var(--b1k-ink)}
 .bill.krw-50000{--bc:#F2E0AE;--bi:#7A5A12} .bill.krw-10000{--bc:#D3E9D2;--bi:#2E6B3A} .bill.krw-5000{--bc:#F5D6C2;--bi:#8E4622} .bill.krw-1000{--bc:#D3E3F5;--bi:#2F5B8A}
-:root[data-theme="dark"] .bill.krw-50000{--bc:#7C6A3A;--bi:#FBF0D2} :root[data-theme="dark"] .bill.krw-10000{--bc:#3F6A45;--bi:#E1F3E0} :root[data-theme="dark"] .bill.krw-5000{--bc:#7E5039;--bi:#FBE6D8} :root[data-theme="dark"] .bill.krw-1000{--bc:#435F82;--bi:#E0ECFA}
-@media (prefers-color-scheme: dark){ :root:not([data-theme="light"]) .bill.krw-50000{--bc:#7C6A3A;--bi:#FBF0D2} :root:not([data-theme="light"]) .bill.krw-10000{--bc:#3F6A45;--bi:#E1F3E0} :root:not([data-theme="light"]) .bill.krw-5000{--bc:#7E5039;--bi:#FBE6D8} :root:not([data-theme="light"]) .bill.krw-1000{--bc:#435F82;--bi:#E0ECFA} }
+:root[data-app-theme="dark"] .bill.krw-50000{--bc:#7C6A3A;--bi:#FBF0D2} :root[data-app-theme="dark"] .bill.krw-10000{--bc:#3F6A45;--bi:#E1F3E0} :root[data-app-theme="dark"] .bill.krw-5000{--bc:#7E5039;--bi:#FBE6D8} :root[data-app-theme="dark"] .bill.krw-1000{--bc:#435F82;--bi:#E0ECFA}
+@media (prefers-color-scheme: dark){ :root[data-app-theme="auto"] .bill.krw-50000{--bc:#7C6A3A;--bi:#FBF0D2} :root[data-app-theme="auto"] .bill.krw-10000{--bc:#3F6A45;--bi:#E1F3E0} :root[data-app-theme="auto"] .bill.krw-5000{--bc:#7E5039;--bi:#FBE6D8} :root[data-app-theme="auto"] .bill.krw-1000{--bc:#435F82;--bi:#E0ECFA} }
 body[data-first] .slip, body[data-first] .calc-wrap, body[data-first] .tabbar, body[data-first] #undoBtn{display:none!important}
 body[data-first] .binder-area, body[data-first] .top > .pill, body[data-first] .pnav, body[data-first] .nudge{display:none!important}
 body[data-empty] #v-summary, body[data-empty] .tabbar [data-go="summary"]{display:none}
@@ -511,6 +511,7 @@ body[data-first] .tabs{visibility:hidden}
 <input type="file" id="importFile" accept=".json,application/json" hidden>
 
 <script>
+document.documentElement.dataset.appTheme = "light";
 (() => {
 "use strict";
 // ---------- 기본값 ----------
@@ -518,7 +519,9 @@ const DEFAULT_CATS = [
   {id:"food",name:"식비",order:0},{id:"household",name:"생활용품",order:1},{id:"transport",name:"교통비",order:2},
   {id:"rent",name:"월세",order:3},{id:"utilities",name:"공과금·통신",order:4},{id:"medical",name:"의료",order:5},
   {id:"leisure",name:"여가·선물",order:6},{id:"travel",name:"여행",order:7},{id:"other",name:"기타",order:8}];
-const DEFAULT_SETTINGS = {currency:"JPY",holidayRule:"holiday",cycleStartDay:25,foodGoal:40000,foodCategoryId:"food",calcSkin:"clear",sound:{enabled:true,preset:"thock",volume:0.7}};
+const DEFAULT_SETTINGS = {currency:"JPY",holidayRule:"holiday",cycleStartDay:25,foodGoal:40000,foodCategoryId:"food",calcSkin:"clear",sound:{enabled:true,preset:"thock",volume:0.7},theme:"light"};
+const THEMES = [["light","밝게"],["dark","어둡게"],["auto","기기 설정 따라"]];
+const applyTheme = () => { document.documentElement.dataset.appTheme = (S.docs["meta/settings"]||{}).theme || "light"; };
 const STICKERS = ["🍀","🐥","🌷","🍓","☁️","🎀","🧸","🌼","🐰","🫧"];
 const TYPES = [["expense","지출"],["income","수입"],["saving","저축"],["investment","투자"],["transfer","이체"]];
 const TYPE_NAME = Object.fromEntries(TYPES);
@@ -953,6 +956,7 @@ function fly(fromRect, page) {
 
 // ---------- 렌더 ----------
 function render() {
+  applyTheme();
   const dot = $("syncDot");
   dot.className = "dot " + (S.dbState === "ok" ? "" : S.dbState === "none" ? "off" : "wait");
   const st = S.dbState === "ok" ? "저장됨" : S.dbState === "none" ? "저장 안 됨" : "불러오는 중";
@@ -1236,6 +1240,8 @@ function trendChart(cur) {
 function renderSettings() {
   const s = settings(), cs = cats();
   let left = `${CLIP}<span class="sticker" style="right:22px;top:14px;--r:-8deg">🧸</span>${weekLine()}<div class="h">설정</div><div class="sub">바꾸면 바로 저장돼요</div>`;
+  left += `<div class="set-card"><h3>화면 테마</h3><div class="seg" id="sTheme">${THEMES.map(([v,n]) => `<button data-v="${v}" aria-pressed="${(s.theme||"light")===v}">${n}</button>`).join("")}</div>
+    <div class="note">기본은 밝은 화면이에요. '기기 설정 따라'를 고르면 기기가 다크 모드일 때 어두워져요.</div></div>`;
   left += `<div class="set-card"><h3>계산기 스킨</h3><div class="skins" id="sSkin">${SKINS.map(([v,n,sw]) => `<button data-v="${v}" aria-pressed="${s.calcSkin===v}"><span class="sw">${sw.map(c=>`<i style="background:${c}"></i>`).join("")}</span>${n}</button>`).join("")}</div></div>`;
   left += `<div class="set-card"><h3>키 소리</h3>
     <label class="check"><input type="checkbox" id="sSound" ${s.sound.enabled?"checked":""}> 키 소리 켜기</label>
@@ -1454,6 +1460,7 @@ function settingsChange(e) {
 }
 function settingsClick(e) {
   const b = e.target.closest("button"); if (!b) return;
+  if (b.closest("#sTheme")) { saveSettings({theme:b.dataset.v}, `화면 테마를 '${THEMES.find(t => t[0] === b.dataset.v)[1]}'(으)로 바꿨어요`); return; }
   if (b.closest("#sCur")) { saveSettings({currency:b.dataset.v}, b.dataset.v === "KRW" ? "원(₩)으로 바꿨어요" : "엔(¥)으로 바꿨어요"); return; }
   if (b.id === "persist") { askPersist().then(ok => { toast(ok ? "저장소 보호를 켰어요" : "이 브라우저는 저장소 보호를 허용하지 않았어요. 홈 화면에 추가하면 켜질 수 있어요", false); render(); }); return; }
   if (b.id === "autoOn") return connectAutoBackup();
