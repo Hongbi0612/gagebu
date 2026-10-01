@@ -518,7 +518,7 @@ const DEFAULT_CATS = [
   {id:"food",name:"식비",order:0},{id:"household",name:"생활용품",order:1},{id:"transport",name:"교통비",order:2},
   {id:"rent",name:"월세",order:3},{id:"utilities",name:"공과금·통신",order:4},{id:"medical",name:"의료",order:5},
   {id:"leisure",name:"여가·선물",order:6},{id:"travel",name:"여행",order:7},{id:"other",name:"기타",order:8}];
-const DEFAULT_SETTINGS = {currency:"JPY",holidayRule:"jp",cycleStartDay:25,foodGoal:40000,foodCategoryId:"food",calcSkin:"clear",sound:{enabled:true,preset:"thock",volume:0.7}};
+const DEFAULT_SETTINGS = {currency:"JPY",holidayRule:"holiday",cycleStartDay:25,foodGoal:40000,foodCategoryId:"food",calcSkin:"clear",sound:{enabled:true,preset:"thock",volume:0.7}};
 const STICKERS = ["🍀","🐥","🌷","🍓","☁️","🎀","🧸","🌼","🐰","🫧"];
 const TYPES = [["expense","지출"],["income","수입"],["saving","저축"],["investment","투자"],["transfer","이체"]];
 const TYPE_NAME = Object.fromEntries(TYPES);
@@ -581,7 +581,52 @@ function periodOf(d) {
   if (d.getDate() >= settings().cycleStartDay) return pkey(d.getFullYear(), d.getMonth()+1);
   const p = new Date(d.getFullYear(), d.getMonth(), 0); return pkey(p.getFullYear(), p.getMonth()+1);
 }
-function payday(y, m) { const rule = settings().holidayRule; let d = new Date(y, m-1, settings().cycleStartDay); if (rule === "none") return d; while (d.getDay()===0 || d.getDay()===6 || (rule === "jp" && isHoliday(d))) d = addDays(d,-1); return d; }
+// 한국 공휴일 (월급날을 앞당길지 판단하는 데 쓴다). 공개판 index.html 에 그대로 들어간다.
+// 설날·부처님오신날·추석은 음력이라 2022~2035년 양력 날짜를 표로 둔다. 표 밖의 해는 양력 공휴일만 본다.
+// 선거일·임시공휴일은 넣지 않았다.
+const KR_LUNAR = { // [설날, 부처님오신날, 추석] 양력 "월-일"
+  2022:["2-1","5-8","9-10"], 2023:["1-22","5-27","9-29"], 2024:["2-10","5-15","9-17"], 2025:["1-29","5-5","10-6"],
+  2026:["2-17","5-24","9-25"], 2027:["2-7","5-13","9-15"], 2028:["1-27","5-2","10-3"], 2029:["2-13","5-20","9-22"],
+  2030:["2-3","5-9","9-12"], 2031:["1-23","5-28","10-1"], 2032:["2-11","5-16","9-19"], 2033:["1-31","5-6","9-8"],
+  2034:["2-19","5-25","9-27"], 2035:["2-8","5-15","9-16"] };
+const krCache = {};
+function krHolidaySet(y) {
+  if (krCache[y]) return krCache[y];
+  const k = d => `${d.getMonth()+1}-${d.getDate()}`, at = (md, off = 0) => { const [m, d] = md.split("-").map(Number); return new Date(y, m-1, d + off); };
+  const set = new Set(["1-1","3-1","5-5","6-6","8-15","10-3","10-9","12-25"]);
+  const lunar = KR_LUNAR[y], blocks = [];
+  if (lunar) {
+    for (const md of [lunar[0], lunar[2]]) { const b = [at(md,-1), at(md), at(md,1)]; blocks.push(b); b.forEach(d => set.add(k(d))); }
+    set.add(lunar[1]);
+  }
+  const base = new Set(set), subs = [];
+  const nextFree = d => { let x = addDays(d, 1); while (x.getDay() === 0 || x.getDay() === 6 || base.has(k(x)) || subs.some(s => k(s) === k(x))) x = addDays(x, 1); return x; };
+  // 설날·추석 연휴: 일요일이나 다른 공휴일과 겹치면 연휴 다음 첫 평일
+  for (const b of blocks) {
+    const others = new Set([...base].filter(md => !b.some(d => k(d) === md)));
+    let n = b.filter(d => d.getDay() === 0 || others.has(k(d))).length;
+    let last = b[2]; while (n-- > 0) { last = nextFree(last); subs.push(last); }
+  }
+  // 어린이날: 토·일요일이나 다른 공휴일과 겹치면
+  const kids = at("5-5");
+  if (kids.getDay() === 0 || kids.getDay() === 6 || (lunar && lunar[1] === "5-5")) subs.push(nextFree(kids));
+  // 국경일(2021~)과 부처님오신날·성탄절(2023~): 토·일요일이면
+  const satSun = [...(y >= 2021 ? ["3-1","8-15","10-3","10-9"] : []), ...(y >= 2023 ? ["12-25"].concat(lunar ? [lunar[1]] : []) : [])];
+  for (const md of satSun) { const d = at(md); if (d.getDay() === 0 || d.getDay() === 6) subs.push(nextFree(d)); }
+  subs.forEach(d => set.add(k(d)));
+  return (krCache[y] = set);
+}
+const isKrHoliday = d => krHolidaySet(d.getFullYear()).has(`${d.getMonth()+1}-${d.getDate()}`);
+
+// 공휴일은 고른 돈에 맞춰 판단한다: 엔 → 일본, 원 → 한국
+const isPublicHoliday = d => settings().currency === "KRW" ? isKrHoliday(d) : isHoliday(d);
+function payday(y, m) {
+  const rule = settings().holidayRule; let d = new Date(y, m-1, settings().cycleStartDay);
+  if (rule === "none") return d;
+  const useHoliday = rule !== "weekend"; // 예전 값 "jp" 도 공휴일 포함으로 본다
+  while (d.getDay()===0 || d.getDay()===6 || (useHoliday && isPublicHoliday(d))) d = addDays(d,-1);
+  return d;
+}
 function incomePeriodOf(d) { return d >= payday(d.getFullYear(), d.getMonth()+1) ? pkey(d.getFullYear(), d.getMonth()+1) : periodOf(d); }
 function shiftKey(k, n) { const [y,m] = k.split("-").map(Number); const d = new Date(y, m-1+n, 1); return pkey(d.getFullYear(), d.getMonth()+1); }
 function periodTitle(k) { const [y,m] = k.split("-").map(Number); return `${y}년 ${m}월분`; }
@@ -949,7 +994,7 @@ const importBox = () => S.importData ? `<div class="edit" style="margin:0"><div>
   <div class="btns"><button class="btn danger armed" id="impGo">가져오기</button><button class="btn" id="impX">취소</button></div></div>` : "";
 const DEFAULT_CAT_IDS = DEFAULT_CATS.map(c => c.id);
 function renderWelcome() {
-  const w = S.welcome || (S.welcome = {currency:"JPY", day:25, rule:"jp", goal:"40000", cats:[...DEFAULT_CAT_IDS], extra:[], skin:"clear", sound:true, preset:"thock"});
+  const w = S.welcome || (S.welcome = {currency:"JPY", day:25, rule:"holiday", goal:"40000", cats:[...DEFAULT_CAT_IDS], extra:[], skin:"clear", sound:true, preset:"thock"});
   const cur = w.currency === "KRW" ? "₩" : "¥", unit = w.currency === "KRW" ? "원" : "엔";
   const opt = (key, v, label, sub = "") => `<button type="button" data-w="${key}" data-v="${v}" aria-pressed="${String(w[key])===String(v)}">${label}${sub?`<small>${sub}</small>`:""}</button>`;
   // 오늘이 속한 한 달: 월급날 이후면 이번 달분, 아니면 지난달분
@@ -966,8 +1011,8 @@ function renderWelcome() {
     <section class="ob-sec"><span class="n">2</span><h2>월급날은 언제예요?</h2><p class="why">월급날부터 다음 월급 전날까지를 한 달로 묶어서 봐요.</p>
       <div class="ob-body"><div class="frow"><select class="field" id="wDay" style="max-width:120px">${Array.from({length:28},(_,i)=>`<option value="${i+1}" ${w.day===i+1?"selected":""}>${i+1}일</option>`).join("")}</select></div>
         <div class="ob-preview">오늘 기준으로 <b>${mo}월 ${w.day}일 ~ ${end.getMonth()+1}월 ${end.getDate()}일</b>이 '${mo}월분'이에요.</div>
-        <div class="ob-opts">${opt("rule","jp","주말·공휴일엔 앞당김","일본 공휴일 포함")}${opt("rule","weekend","주말엔 앞당김","토·일요일만")}${opt("rule","none","항상 그날","당기지 않음")}</div>
-        <p class="why" style="margin:0">월급날이 쉬는 날이면 그 전 평일에 들어오는 경우가 많아요. 그렇게 일찍 들어온 월급도 새 달 수입으로 넣어 줘요.</p></div></section>
+        <div class="ob-opts">${opt("rule","holiday","주말·공휴일엔 앞당김")}${opt("rule","weekend","주말엔 앞당김")}${opt("rule","none","항상 그날")}</div>
+        <p class="why" style="margin:0">월급날이 쉬는 날이면 그 전 평일에 들어오는 경우가 많아요. 그렇게 일찍 들어온 월급도 새 달 수입으로 넣어 줘요. 공휴일은 1번에서 고른 돈에 맞춰 ${w.currency === "KRW" ? "한국" : "일본"} 공휴일로 계산해요.</p></div></section>
     <section class="ob-sec"><span class="n">3</span><h2>한 달 식비 목표</h2><p class="why">식비 포켓에 목표 대비 게이지가 생겨요. 넘어도 입력은 막지 않아요. 비워 두면 목표 없이 시작해요.</p>
       <div class="ob-body"><div class="frow"><span class="lab">${cur}</span><input class="field" id="wGoal" inputmode="numeric" value="${esc(w.goal)}" style="max-width:180px" placeholder="목표 없음"><span class="muted">${unit} / 월</span></div><div class="err" id="wErr" hidden></div></div></section>
     <section class="ob-sec"><span class="n">4</span><h2>어떤 카테고리를 쓸까요?</h2><p class="why">눌러서 끄고 켤 수 있어요. 나중에 설정에서 언제든 바꿀 수 있어요.</p>
@@ -1160,8 +1205,8 @@ function renderSettings() {
   left += `<div class="set-card"><h3>돈 · 월급날</h3>
     <div class="frow"><span class="lab">통화</span><div class="seg" id="sCur" style="flex:1">${[["JPY","¥ 엔"],["KRW","₩ 원"]].map(([v,n])=>`<button data-v="${v}" aria-pressed="${s.currency===v}">${n}</button>`).join("")}</div></div>
     <div class="frow"><span class="lab">월급날</span><select class="field" id="sDay" style="max-width:110px">${Array.from({length:28},(_,i)=>`<option value="${i+1}" ${s.cycleStartDay===i+1?"selected":""}>${i+1}일</option>`).join("")}</select>
-      <select class="field" id="sRule">${[["jp","주말·일본 공휴일이면 앞당김"],["weekend","주말이면 앞당김"],["none","항상 그날"]].map(([v,n])=>`<option value="${v}" ${s.holidayRule===v?"selected":""}>${n}</option>`).join("")}</select></div>
-    <div class="note">월급날부터 다음 달 전날까지를 한 달로 봐요. 바꾸면 지난 기록도 새 기준으로 다시 묶여요.</div></div>`;
+      <select class="field" id="sRule">${[["holiday","주말·공휴일이면 앞당김"],["weekend","주말이면 앞당김"],["none","항상 그날"]].map(([v,n])=>`<option value="${v}" ${(s.holidayRule==="jp"?"holiday":s.holidayRule)===v?"selected":""}>${n}</option>`).join("")}</select></div>
+    <div class="note">월급날부터 다음 달 전날까지를 한 달로 봐요. 공휴일은 고른 돈에 맞춰 ${s.currency==="KRW"?"한국":"일본"} 공휴일로 계산해요.</div></div>`;
   left += `<div class="set-card"><h3>식비 목표</h3><div class="frow"><span class="lab">목표</span><input class="field" id="sGoal" inputmode="numeric" value="${s.foodGoal}" style="max-width:150px"><span class="muted">${s.currency==="KRW"?"원":"엔"} / 월</span></div>
     <div class="frow"><span class="lab">분류</span><select class="field" id="sFoodCat" style="max-width:200px">${cs.map(c=>`<option value="${c.id}" ${c.id===s.foodCategoryId?"selected":""}>${esc(c.name)}</option>`).join("")}</select></div>
     <div class="note">80%를 넘으면 주황, 100%를 넘으면 빨강으로 바뀌어요. 넘어도 입력은 막지 않아요.</div><div class="err" id="goalErr" hidden></div></div>`;
@@ -1321,7 +1366,7 @@ function welcomeClick(e) {
     if (k === "mute") w.sound = false;
     else if (k === "preset") { w.preset = v; w.sound = true; S.welcomeSound = v; }
     else w[k] = v;
-    if (k === "currency") { w.goal = v === "KRW" ? "400000" : "40000"; if (v === "KRW" && w.rule === "jp") w.rule = "weekend"; }
+    if (k === "currency") w.goal = v === "KRW" ? "400000" : "40000";
     if (k === "preset" || k === "skin") playPreview(w);
     render(); return;
   }
