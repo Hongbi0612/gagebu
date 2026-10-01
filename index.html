@@ -394,6 +394,47 @@ textarea.field{height:auto;padding:10px 12px;resize:vertical;font-family:var(--h
 :root[data-theme="dark"] .bill.krw-50000{--bc:#7C6A3A;--bi:#FBF0D2} :root[data-theme="dark"] .bill.krw-10000{--bc:#3F6A45;--bi:#E1F3E0} :root[data-theme="dark"] .bill.krw-5000{--bc:#7E5039;--bi:#FBE6D8} :root[data-theme="dark"] .bill.krw-1000{--bc:#435F82;--bi:#E0ECFA}
 @media (prefers-color-scheme: dark){ :root:not([data-theme="light"]) .bill.krw-50000{--bc:#7C6A3A;--bi:#FBF0D2} :root:not([data-theme="light"]) .bill.krw-10000{--bc:#3F6A45;--bi:#E1F3E0} :root:not([data-theme="light"]) .bill.krw-5000{--bc:#7E5039;--bi:#FBE6D8} :root:not([data-theme="light"]) .bill.krw-1000{--bc:#435F82;--bi:#E0ECFA} }
 body[data-first] .slip, body[data-first] .calc-wrap, body[data-first] .tabbar, body[data-first] #undoBtn{display:none!important}
+body[data-first] .binder-area, body[data-first] .top > .pill, body[data-first] .pnav, body[data-first] .nudge{display:none!important}
+body[data-empty] #v-summary, body[data-empty] .tabbar [data-go="summary"]{display:none}
+.onboard{grid-column:1/-1;max-width:760px;width:100%;margin:6px auto 0;display:none}
+body[data-first] .onboard{display:block}
+body[data-first] .layout{grid-template-columns:minmax(0,1fr);grid-template-areas:"onb"}
+.ob-card{position:relative;background:var(--sheet);border:1px solid var(--sheet-edge);border-radius:28px;padding:30px 30px 24px;box-shadow:var(--shadow);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px)}
+.ob-head{text-align:center}
+.ob-head h1{font-family:var(--hand);font-size:36px;line-height:1.1;margin:12px 0 4px;text-wrap:balance}
+.ob-head p{margin:0;color:var(--ink-2);font-size:14px}
+.ob-import{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin:20px 0 4px;padding:12px 14px;border-radius:16px;background:var(--sky);color:var(--sky-ink);font-size:13.5px}
+.ob-import span{flex:1;min-width:200px}
+.ob-sec{display:grid;grid-template-columns:34px minmax(0,1fr);gap:4px 12px;padding:20px 0;border-bottom:1.2px dashed var(--line)}
+.ob-sec .n{grid-row:span 3;width:30px;height:30px;border-radius:50%;background:var(--ink);color:var(--desk);display:grid;place-items:center;font-family:var(--hand-en);font-size:18px}
+.ob-sec h2{margin:2px 0 0;font-family:var(--hand);font-size:24px;line-height:1.1}
+.ob-sec .why{font-size:12.5px;color:var(--ink-3);margin:0 0 6px}
+.ob-body{display:grid;gap:10px}
+.ob-opts{display:flex;gap:6px;flex-wrap:wrap}
+.ob-opts button{flex:1;min-width:110px;border:1.5px solid var(--line);background:var(--sheet);border-radius:14px;padding:11px 10px;font-size:14px;color:var(--ink-2);display:grid;gap:2px;text-align:center}
+.ob-opts button small{font-size:11.5px;color:var(--ink-3)}
+.ob-opts button[aria-pressed="true"]{border-color:var(--ink);color:var(--ink);background:var(--desk);box-shadow:0 4px 12px -8px rgba(35,37,47,.5)}
+.ob-preview{font-size:13px;color:var(--ink-2);background:var(--desk);border-radius:12px;padding:8px 12px}
+.ob-preview b{color:var(--ink);font-weight:500}
+.ob-cats{display:flex;flex-wrap:wrap;gap:6px}
+.ob-cats button{border:1.5px solid transparent;background:var(--cb);color:var(--ci);border-radius:999px;padding:7px 14px;font-size:13.5px;opacity:.4;text-decoration:line-through}
+.ob-cats button[aria-pressed="true"]{opacity:1;text-decoration:none;border-color:var(--ci)}
+.ob-cats button[disabled]{cursor:default}
+.ob-skins{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+.ob-skins button{border:1.5px solid var(--line);background:var(--sheet);border-radius:16px;padding:12px 6px 10px;display:grid;justify-items:center;gap:8px;font-size:13px;color:var(--ink-2)}
+.ob-skins button[aria-pressed="true"]{border-color:var(--ink);color:var(--ink)}
+.mini{width:54px;padding:6px;border-radius:12px;display:grid;grid-template-columns:repeat(3,1fr);gap:3px}
+.mini i{aspect-ratio:1;border-radius:4px}
+.mini.clear{background:linear-gradient(150deg,#fff,#E7ECF4);box-shadow:inset 0 0 0 1px #fff,0 3px 0 #CDD5E2}
+.mini.clear i{background:linear-gradient(#fff,#E9EEF6);box-shadow:0 1.5px 0 #C6CFDC}
+.mini.peach{background:#FBF8F4;box-shadow:0 3px 0 #EFE6DC}
+.mini.peach i{border-radius:50%} .mini.peach i:nth-child(-n+3){background:#F9EDE6} .mini.peach i:nth-child(n+4){background:#EFC7B5} .mini.peach i:nth-child(n+7){background:#DC977E}
+.mini.sky{background:#F8FAFC;box-shadow:0 3px 0 #E2E8EF}
+.mini.sky i{border-radius:50%} .mini.sky i:nth-child(-n+3){background:#EAF2FA} .mini.sky i:nth-child(n+4){background:#C3D8EF} .mini.sky i:nth-child(n+7){background:#97B7DF}
+.ob-go{position:sticky;bottom:calc(12px + env(safe-area-inset-bottom,0px));margin-top:18px}
+.ob-go .go{height:56px;font-size:16px}
+.first-tip{display:flex;gap:8px;align-items:flex-start;padding:10px 12px;border-radius:14px;background:var(--butter);color:var(--butter-ink);font-size:13px;line-height:1.5}
+@media (max-width:720px){ .ob-card{padding:22px 16px 18px;border-radius:22px} .ob-head h1{font-size:30px} .ob-sec{grid-template-columns:28px minmax(0,1fr);gap:4px 10px} .ob-sec .n{width:26px;height:26px;font-size:15px} .ob-opts button{min-width:0} }
 body[data-first] .tabs{visibility:hidden}
 .nudge{max-width:1480px;margin:0 auto 12px;padding:10px 12px 10px 16px;border-radius:14px;background:var(--sheet);border:1px solid var(--sheet-edge);display:flex;gap:10px;align-items:center;flex-wrap:wrap;font-size:13.5px;box-shadow:0 6px 18px -12px rgba(70,80,120,.35);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px)}
 .nudge span{flex:1;min-width:200px}
@@ -429,6 +470,7 @@ body[data-first] .tabs{visibility:hidden}
 <div class="nudge" id="nudge" hidden><span id="nudgeMsg"></span><button class="btn primary" id="nudgeGo">지금 백업</button><button class="btn" id="nudgeLater">나중에</button></div>
 
 <main class="layout">
+  <section class="onboard" id="onboard" aria-label="처음 설정"></section>
   <section class="binder-area" id="binder" aria-label="다이어리">
     <div class="tabs" id="tabs" role="tablist"></div>
     <div class="case"><div class="spread" id="spread"></div><span class="zip" aria-hidden="true"></span></div>
@@ -441,6 +483,7 @@ body[data-first] .tabs{visibility:hidden}
     <div class="frow"><span class="lab">날짜</span><input class="field" type="date" id="fDate"></div>
     <select class="field" id="fPeriod" hidden aria-label="어느 달분"></select>
     <div class="frow"><span class="lab">결제</span><div class="seg" id="paySeg" style="flex:1"></div></div>
+    <div class="first-tip" id="firstTip" hidden>💡 <span>첫 기록은 <b>월급</b>부터 넣어 보세요. '수입'이 골라져 있어요. 금액을 치고 아래 버튼을 누르면 월급 포켓에 지폐가 쌓여요.</span></div>
     <label class="check" id="specialWrap"><input type="checkbox" id="fSpecial"> 특별지출 (생활비 합계에서 빼요)</label>
   </section>
 
@@ -838,6 +881,9 @@ function render() {
   for (const v of ["diary","summary","settings"]) $("v-"+v).setAttribute("aria-pressed", S.view===v);
   document.body.dataset.view = S.view;
   if (S.firstRun) document.body.dataset.first = "1"; else delete document.body.dataset.first;
+  const empty = S.dbState === "ok" && totalCount() === 0;
+  if (empty) { document.body.dataset.empty = "1"; if (S.view === "summary") S.view = "diary"; } else delete document.body.dataset.empty;
+  $("firstTip").hidden = !(empty && !S.firstRun);
   document.querySelectorAll(".tabbar [data-go]").forEach(b => { if (b.dataset.go !== "write") b.setAttribute("aria-pressed", S.view === b.dataset.go); });
   renderCalc();
   renderTabs();
@@ -901,29 +947,42 @@ function gaugeHtml(t) {
 }
 const importBox = () => S.importData ? `<div class="edit" style="margin:0"><div>${S.importData.entries.length}건 · ${Object.keys(S.importData.byKey).length}개월을 가져와요. 지금 있는 기록은 모두 이 파일 내용으로 바뀌어요. (되돌리기로 되돌릴 수 있어요)</div>
   <div class="btns"><button class="btn danger armed" id="impGo">가져오기</button><button class="btn" id="impX">취소</button></div></div>` : "";
+const DEFAULT_CAT_IDS = DEFAULT_CATS.map(c => c.id);
 function renderWelcome() {
-  const w = S.welcome || (S.welcome = {currency:"JPY", day:25, rule:"jp", goal:40000});
-  const opt = (key, v, label) => `<button data-w="${key}" data-v="${v}" aria-pressed="${String(w[key])===String(v)}">${label}</button>`;
-  let left = `${CLIP}<span class="sticker" style="right:22px;top:16px;--r:12deg">🫧</span>${weekLine()}
-    <div style="text-align:center;margin-top:16px"><span class="oval" style="--cb:var(--sky);--ci:var(--sky-ink)">hello</span><div class="tagline">타닥 가계부를 시작해요<small>Budgeting and saving in advance ˘ᵕ˘</small></div></div>
-    <div class="welcome set-card"><h3>어떤 돈을 쓰나요?</h3><div class="opt">${opt("currency","JPY","¥ 엔")}${opt("currency","KRW","₩ 원")}</div></div>
-    <div class="welcome set-card"><h3>월급날</h3><div class="frow"><select class="field" id="wDay" style="max-width:120px">${Array.from({length:28},(_,i)=>`<option value="${i+1}" ${w.day===i+1?"selected":""}>${i+1}일</option>`).join("")}</select><span class="note">이 날부터 다음 달 전날까지를 한 달로 봐요</span></div>
-      <div class="opt">${opt("rule","jp","주말·일본 공휴일이면 앞당겨짐")}${opt("rule","weekend","주말이면 앞당겨짐")}${opt("rule","none","항상 그날")}</div></div>
-    <div class="welcome set-card"><h3>한 달 식비 목표</h3><div class="frow"><input class="field" id="wGoal" inputmode="numeric" value="${w.goal}" style="max-width:160px"><span class="muted">${w.currency==="KRW"?"원":"엔"}</span></div><div class="err" id="wErr" hidden></div></div>
-    <button class="go" id="wStart" style="margin-top:12px">시작하기</button>`;
-  let right = `${ARROW("auto;right:22px","22px",-8)}<div class="h" style="margin-top:6px">이렇게 써요</div>
-    <ol class="steps" style="padding:0">
-      <li><span><b>월급이 들어오면</b> '수입'을 고르고 계산기로 금액을 쳐서 넣어요. 월급 포켓에 지폐가 쌓여요.</span></li>
-      <li><span><b>돈을 쓰면</b> '지출'과 카테고리를 고르고 넣어요. 월급 포켓에서 지폐가 빠져나가 카테고리 포켓으로 옮겨가요.</span></li>
-      <li><span><b>요약</b>에서 이번 달 생활비, 카테고리별 지출, 월별 추이를 봐요.</span></li>
-    </ol>
+  const w = S.welcome || (S.welcome = {currency:"JPY", day:25, rule:"jp", goal:"40000", cats:[...DEFAULT_CAT_IDS], extra:[], skin:"clear", sound:true, preset:"thock"});
+  const cur = w.currency === "KRW" ? "₩" : "¥", unit = w.currency === "KRW" ? "원" : "엔";
+  const opt = (key, v, label, sub = "") => `<button type="button" data-w="${key}" data-v="${v}" aria-pressed="${String(w[key])===String(v)}">${label}${sub?`<small>${sub}</small>`:""}</button>`;
+  // 오늘이 속한 한 달: 월급날 이후면 이번 달분, 아니면 지난달분
+  const now = new Date(), sm = now.getDate() >= w.day ? now.getMonth() : now.getMonth() - 1;
+  const start = new Date(now.getFullYear(), sm, w.day), end = new Date(now.getFullYear(), sm + 1, w.day - 1), mo = start.getMonth() + 1;
+  const allCats = [...DEFAULT_CATS, ...w.extra];
+  $("onboard").innerHTML = `<div class="ob-card">
+    <div class="ob-head"><span class="oval" style="--cb:var(--sky);--ci:var(--sky-ink)">hello</span>
+      <h1>타닥 가계부를 시작해요</h1><p>아래 다섯 가지만 정하면 돼요. 모두 기본값이 골라져 있어서 그대로 시작해도 괜찮아요.</p></div>
+    <div class="ob-import"><span>📂 다른 기기에서 쓰던 기록이 있나요? 백업 파일을 불러오면 설정까지 그대로 이어져요.</span><button class="btn" type="button" id="impJson">백업 파일 불러오기</button></div>
+    <div class="err" id="bkErr" hidden></div>${importBox()}
+    <section class="ob-sec"><span class="n">1</span><h2>어떤 돈을 쓰나요?</h2>
+      <div class="ob-body"><div class="ob-opts">${opt("currency","JPY","¥ 엔","일본 엔")}${opt("currency","KRW","₩ 원","한국 원")}</div></div></section>
+    <section class="ob-sec"><span class="n">2</span><h2>월급날은 언제예요?</h2><p class="why">월급날부터 다음 월급 전날까지를 한 달로 묶어서 봐요.</p>
+      <div class="ob-body"><div class="frow"><select class="field" id="wDay" style="max-width:120px">${Array.from({length:28},(_,i)=>`<option value="${i+1}" ${w.day===i+1?"selected":""}>${i+1}일</option>`).join("")}</select></div>
+        <div class="ob-preview">오늘 기준으로 <b>${mo}월 ${w.day}일 ~ ${end.getMonth()+1}월 ${end.getDate()}일</b>이 '${mo}월분'이에요.</div>
+        <div class="ob-opts">${opt("rule","jp","주말·공휴일엔 앞당김","일본 공휴일 포함")}${opt("rule","weekend","주말엔 앞당김","토·일요일만")}${opt("rule","none","항상 그날","당기지 않음")}</div>
+        <p class="why" style="margin:0">월급날이 쉬는 날이면 그 전 평일에 들어오는 경우가 많아요. 그렇게 일찍 들어온 월급도 새 달 수입으로 넣어 줘요.</p></div></section>
+    <section class="ob-sec"><span class="n">3</span><h2>한 달 식비 목표</h2><p class="why">식비 포켓에 목표 대비 게이지가 생겨요. 넘어도 입력은 막지 않아요. 비워 두면 목표 없이 시작해요.</p>
+      <div class="ob-body"><div class="frow"><span class="lab">${cur}</span><input class="field" id="wGoal" inputmode="numeric" value="${esc(w.goal)}" style="max-width:180px" placeholder="목표 없음"><span class="muted">${unit} / 월</span></div><div class="err" id="wErr" hidden></div></div></section>
+    <section class="ob-sec"><span class="n">4</span><h2>어떤 카테고리를 쓸까요?</h2><p class="why">눌러서 끄고 켤 수 있어요. 나중에 설정에서 언제든 바꿀 수 있어요.</p>
+      <div class="ob-body"><div class="ob-cats">${allCats.map((c,i) => `<button type="button" data-cat="${c.id}" style="--cb:var(--c${(i%9)+1});--ci:var(--c${(i%9)+1}i)" aria-pressed="${w.cats.includes(c.id)}" ${c.id==="food"?"disabled title='식비 목표에 쓰여서 항상 켜져요'":""}>${esc(c.name)}</button>`).join("")}</div>
+        <div class="frow"><input class="field" id="wNewCat" placeholder="직접 추가 (예: 반려동물)" maxlength="20"><button class="btn" type="button" id="wAddCat">추가</button></div></div></section>
+    <section class="ob-sec" style="border-bottom:0"><span class="n">5</span><h2>계산기 꾸미기</h2><p class="why">누를 때마다 타닥 소리가 나요. 눌러서 미리 들어 보세요.</p>
+      <div class="ob-body"><div class="ob-skins">${[["clear","클리어 아크릴"],["peach","피치"],["sky","스카이"]].map(([v,n]) => `<button type="button" data-w="skin" data-v="${v}" aria-pressed="${w.skin===v}"><span class="mini ${v}">${"<i></i>".repeat(9)}</span>${n}</button>`).join("")}</div>
+        <div class="ob-opts">${["thock","clicky","acrylic"].map((v,i) => `<button type="button" data-w="preset" data-v="${v}" aria-pressed="${w.sound && w.preset===v}">${["도각","찰칵","톡톡"][i]}<small>${["묵직한 기계식","청축 느낌","아크릴 키캡"][i]}</small></button>`).join("")}<button type="button" data-w="mute" aria-pressed="${!w.sound}">소리 끄기<small>조용히</small></button></div></div></section>
     <div class="privacy">🔒 기록은 <b>이 기기의 브라우저에만</b> 저장돼요. 서버로 보내지 않아서 다른 사람은 볼 수 없어요. 대신 가끔 <b>설정 → 백업</b>에서 백업 파일을 저장해 두세요.</div>
-    <div class="set-card" style="margin-top:10px"><h3>백업 파일이 있나요?</h3><div class="note">다른 기기에서 저장한 백업 파일을 불러와서 이어 쓸 수 있어요.</div>
-      <div class="btns" style="display:flex;gap:6px"><button class="btn" id="impJson">백업 파일 불러오기</button></div><div class="err" id="bkErr" hidden></div>${importBox()}</div>`;
-  $("spread").innerHTML = page("left", left, "") + rings() + page("right", right, "");
+    <div class="ob-go"><button class="go" type="button" id="wStart">가계부 시작하기</button></div>
+  </div>`;
 }
 function renderDiary() {
   if (S.firstRun) return renderWelcome();
+  $("onboard").innerHTML = "";
   const k = S.period, t = totals(k), id = S.page;
   const st = STICKERS[(k.charCodeAt(6) + id.length) % STICKERS.length];
   let left = `${CLIP}<span class="sticker" style="right:24px;top:16px;--r:14deg">${st}</span>${ARROW("22px","58px",200)}`;
@@ -1211,7 +1270,6 @@ function bind() {
   const sp = $("spread");
   sp.addEventListener("click", e => {
     if (e.target.closest("[data-more]")) { S.showAll = !S.showAll; render(); return; }
-    if (S.firstRun) return welcomeClick(e);
     const row = e.target.closest("[data-edit]");
     if (row) { S.editing = S.editing === row.dataset.edit ? null : row.dataset.edit; S.armedDelete = null; render(); return; }
     const form = e.target.closest("form.edit");
@@ -1236,6 +1294,9 @@ function bind() {
     commit({["periods/"+k]: doc}, "특이사항을 저장했어요");
   });
   sp.addEventListener("mouseover", e => { const r = e.target.closest("[data-pk]"), cap = $("chartCap"); if (r && cap) cap.textContent = r.querySelector("title").textContent; });
+  $("onboard").addEventListener("click", welcomeClick);
+  $("onboard").addEventListener("change", e => { if (e.target.id === "wDay") { S.welcome.day = Number(e.target.value); render(); } });
+  $("onboard").addEventListener("input", e => { if (e.target.id === "wGoal") S.welcome.goal = e.target.value; });
   $("nudgeGo").onclick = () => exportJson();
   $("nudgeLater").onclick = () => { local.meta.snoozeUntil = Date.now() + 3 * 864e5; saveMeta(); checkNudge(); };
   addEventListener("beforeinstallprompt", e => { e.preventDefault(); S.installPrompt = e; if (S.view === "settings") render(); });
@@ -1255,22 +1316,44 @@ function bind() {
 function welcomeClick(e) {
   const b = e.target.closest("button"); if (!b) return;
   const w = S.welcome;
-  w.day = Number($("wDay").value); w.goal = $("wGoal").value;
   if (b.dataset.w) {
-    w[b.dataset.w] = b.dataset.v;
-    if (b.dataset.w === "currency") { w.goal = b.dataset.v === "KRW" ? 400000 : 40000; if (b.dataset.v === "KRW" && w.rule === "jp") w.rule = "weekend"; }
+    const k = b.dataset.w, v = b.dataset.v;
+    if (k === "mute") w.sound = false;
+    else if (k === "preset") { w.preset = v; w.sound = true; S.welcomeSound = v; }
+    else w[k] = v;
+    if (k === "currency") { w.goal = v === "KRW" ? "400000" : "40000"; if (v === "KRW" && w.rule === "jp") w.rule = "weekend"; }
+    if (k === "preset" || k === "skin") playPreview(w);
+    render(); return;
+  }
+  if (b.dataset.cat) { const id = b.dataset.cat; if (id === "food") return; w.cats = w.cats.includes(id) ? w.cats.filter(x => x !== id) : [...w.cats, id]; render(); return; }
+  if (b.id === "wAddCat") {
+    const name = $("wNewCat").value.trim(); if (!name) return;
+    if (![...DEFAULT_CATS, ...w.extra].some(c => c.name === name)) { const id = "c" + Date.now().toString(36); w.extra.push({id, name}); w.cats.push(id); }
     render(); return;
   }
   if (b.id === "impJson") return $("importFile").click();
   if (b.id === "impGo") return applyImport();
   if (b.id === "impX") { S.importData = null; render(); return; }
   if (b.id === "wStart") {
-    const goal = Math.round(Number(String(w.goal).replace(/[,\s]/g, "")));
-    if (!(goal > 0)) { $("wErr").textContent = "목표는 1 이상의 숫자로 적어 주세요."; $("wErr").hidden = false; return; }
+    const raw = String(w.goal).replace(/[,\s]/g, ""), goal = raw === "" ? 0 : Math.round(Number(raw));
+    if (Number.isNaN(goal) || goal < 0) { $("wErr").textContent = "목표는 숫자로 적거나 비워 두세요."; $("wErr").hidden = false; return; }
+    const items = [...DEFAULT_CATS, ...w.extra].filter(c => w.cats.includes(c.id)).map((c, i) => ({id:c.id, name:c.name, order:i}));
     S.firstRun = false;
-    commit({"meta/settings": {...DEFAULT_SETTINGS, currency:w.currency, cycleStartDay:w.day, holidayRule:w.rule, foodGoal:goal}}, "시작해요! 첫 월급부터 넣어 보세요", {noUndo:true});
-    S.period = periodOf(new Date()); S.type = "income"; askPersist(); render();
+    commit({
+      "meta/settings": {...DEFAULT_SETTINGS, currency:w.currency, cycleStartDay:w.day, holidayRule:w.rule, foodGoal:goal, calcSkin:w.skin,
+        sound:{...DEFAULT_SETTINGS.sound, enabled:w.sound !== false, preset:w.preset}},
+      "meta/categories": {items},
+    }, "준비 끝! 첫 월급부터 넣어 보세요", {noUndo:true});
+    S.period = periodOf(new Date()); S.type = "income"; S.view = "diary"; S.page = "salary"; askPersist(); render();
+    scrollTo({top:0});
   }
+}
+// 온보딩에서는 아직 설정이 저장되기 전이라, 고른 소리로 바로 들려준다
+function playPreview(w) {
+  const keep = S.docs["meta/settings"];
+  S.docs["meta/settings"] = {...DEFAULT_SETTINGS, sound:{...DEFAULT_SETTINGS.sound, enabled:true, preset:w.preset}};
+  click(w.preset);
+  if (keep) S.docs["meta/settings"] = keep; else delete S.docs["meta/settings"];
 }
 function settingsChange(e) {
   const id = e.target.id;
