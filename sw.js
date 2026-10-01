@@ -1,6 +1,6 @@
 // 타닥 가계부 서비스 워커: 앱 파일은 캐시해서 오프라인에서도 열리게 한다.
 // 기록은 브라우저 저장소에 있어서 여기서 다루지 않는다.
-const CACHE = "tadak-gagebu-v6";
+const CACHE = "tadak-gagebu-v7";
 const SHELL = ["./", "./index.html", "./manifest.webmanifest", "./icons/icon-192.png", "./icons/icon-512.png", "./icons/icon-180.png"];
 
 self.addEventListener("install", e => {

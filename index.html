@@ -361,6 +361,7 @@ textarea.field{height:auto;padding:10px 12px;resize:vertical;font-family:var(--h
 .cattable .bar i{position:absolute;inset:0 auto 0 0;background:var(--ci);border-radius:999px;opacity:.8}
 .cattable .r{text-align:right;white-space:nowrap}
 .cattable .chip{font-family:var(--sans);font-size:11px}
+@container page (max-width:300px){ .cattable .pct{display:none} .cattable td:first-child{width:auto!important} .cattable td:last-child{width:auto!important} .cattable .bar{min-width:24px} .cattable td{font-size:15px;padding:6px 2px} .cattable .chip{padding:1px 7px} }
 .chartwrap{overflow-x:auto}
 .chart text{fill:var(--ink-3);font-size:12px;font-family:var(--hand)}
 .chart .grid{stroke:var(--line);stroke-dasharray:2 4}
@@ -1234,7 +1235,7 @@ function renderSummary() {
   right += rows.length ? `<div style="overflow-x:auto;margin-top:8px"><table class="cattable"><tbody>${rows.map(r => {
       const d = r.v - r.p, pct = t.living ? Math.round(r.v/t.living*100) : 0;
       return `<tr style="${catStyle(r.c.id)}"><td style="width:86px"><span class="chip">${esc(r.c.name)}</span></td><td><div class="bar"><i style="width:${r.v/max*100}%"></i></div></td>
-      <td class="r">${CUR()}${yen(r.v)}</td><td class="r faint" style="width:40px">${pct}%</td><td class="r" style="width:82px">${d===0?"<span class='faint'>—</span>":`<span class="${d>0?"up":"down"}">${d>0?"▲":"▼"}${yen(Math.abs(d))}</span>`}</td></tr>`; }).join("")}</tbody></table></div>`
+      <td class="r">${CUR()}${yen(r.v)}</td><td class="r faint pct" style="width:40px">${pct}%</td><td class="r" style="width:82px">${d===0?"<span class='faint'>—</span>":`<span class="${d>0?"up":"down"}">${d>0?"▲":"▼"}${yen(Math.abs(d))}</span>`}</td></tr>`; }).join("")}</tbody></table></div>`
     : `<div class="empty">이 달은 지출 기록이 없어요</div>`;
   right += `<div class="section"><h3>월별 추이</h3>${trendChart(k)}</div>`;
   $("spread").innerHTML = page("left", left) + rings() + page("right", right);
