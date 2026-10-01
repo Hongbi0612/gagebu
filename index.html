@@ -65,7 +65,12 @@
 html,body{min-height:100%}
 body{margin:0;color:var(--ink);font-family:var(--sans);font-size:14px;line-height:1.5;padding-inline:16px;font-variant-numeric:tabular-nums;-webkit-font-smoothing:antialiased;
   background:radial-gradient(640px 460px at 0% 0%,var(--blob1),transparent 70%),radial-gradient(560px 520px at 88% 100%,var(--blob2),transparent 70%),radial-gradient(420px 340px at 100% 18%,var(--blob3),transparent 70%),var(--desk);background-attachment:fixed}
-button,input,select,textarea{font:inherit;color:inherit}
+button,input,select,textarea{font:inherit;color:inherit;max-width:100%}
+/* 어떤 요소도 페이지를 옆으로 넓히지 않게 (특히 iOS Safari) */
+html,body{overflow-x:hidden} @supports (overflow-x:clip){ html,body{overflow-x:clip} }
+.frow > input,.frow > select{flex:1 1 0;width:0;min-width:0}
+input[type="date"]{-webkit-appearance:none;appearance:none;min-width:0;display:flex;align-items:center}
+input[type="date"]::-webkit-date-and-time-value{text-align:left}
 button{cursor:pointer}
 :focus-visible{outline:2px solid var(--sky-ink);outline-offset:2px}
 .hand{font-family:var(--hand)}
@@ -195,8 +200,8 @@ textarea.field{height:auto;padding:10px 12px;resize:vertical;font-family:var(--h
   .top > .pill[aria-label="보기"]{display:none}
   .pnav{margin-left:0;flex:1;justify-content:space-between}
   .pnav button{width:40px;height:40px}
-  .undo{padding:0;width:42px;height:42px;font-size:0;flex:none} .undo::before{content:"↶";font-size:18px}
-  .tabbar{display:grid;grid-template-columns:repeat(4,1fr);position:fixed;left:0;right:0;bottom:0;z-index:40;padding:6px 10px calc(6px + env(safe-area-inset-bottom,0px));background:var(--sheet);border-top:1px solid var(--sheet-edge);backdrop-filter:blur(18px) saturate(1.2);-webkit-backdrop-filter:blur(18px) saturate(1.2)}
+  .undo{flex:none;padding:8px 12px;font-size:12.5px} .undo:disabled{display:none}
+  .tabbar{display:grid;grid-auto-flow:column;grid-auto-columns:1fr;position:fixed;left:0;right:0;bottom:0;z-index:40;padding:6px 10px calc(6px + env(safe-area-inset-bottom,0px));background:var(--sheet);border-top:1px solid var(--sheet-edge);backdrop-filter:blur(18px) saturate(1.2);-webkit-backdrop-filter:blur(18px) saturate(1.2)}
   .tabbar button{border:0;background:none;display:grid;justify-items:center;gap:1px;padding:6px 0;border-radius:14px;font-size:11px;color:var(--ink-3)}
   .tabbar button i{font-style:normal;font-size:20px;line-height:1.1}
   .tabbar button[aria-pressed="true"]{color:var(--ink)}
@@ -269,6 +274,7 @@ textarea.field{height:auto;padding:10px 12px;resize:vertical;font-family:var(--h
 
 /* 포켓 (반투명 슬리브 + 지폐) */
 .pocket{position:relative;height:250px;margin:22px 0 6px}
+.pocket:has(.bills:empty){height:130px}
 .bills{position:absolute;z-index:1;left:0;right:0;top:0;height:100%;transition:transform .35s cubic-bezier(.2,.8,.2,1)}
 .pocket:hover .bills{transform:translateY(-10px)}
 .bill{position:absolute;left:50%;top:30px;width:min(88%,300px);aspect-ratio:2.05;margin-left:calc(min(88%,300px) / -2);border-radius:6px;background:var(--bc);color:var(--bi);box-shadow:0 1px 2px rgba(0,0,0,.12), inset 0 0 0 5px color-mix(in srgb,var(--bc) 70%,#fff 30%);overflow:hidden;transform:translate(var(--x,0),var(--y,0)) rotate(var(--r,0deg))}
@@ -434,7 +440,28 @@ body[data-first] .layout{grid-template-columns:minmax(0,1fr);grid-template-areas
 .ob-go{position:sticky;bottom:calc(12px + env(safe-area-inset-bottom,0px));margin-top:18px}
 .ob-go .go{height:56px;font-size:16px}
 .first-tip{display:flex;gap:8px;align-items:flex-start;padding:10px 12px;border-radius:14px;background:var(--butter);color:var(--butter-ink);font-size:13px;line-height:1.5}
-@media (max-width:720px){ .ob-card{padding:22px 16px 18px;border-radius:22px} .ob-head h1{font-size:30px} .ob-sec{grid-template-columns:28px minmax(0,1fr);gap:4px 10px} .ob-sec .n{width:26px;height:26px;font-size:15px} .ob-opts button{min-width:0} }
+@media (max-width:720px){
+  .onboard{margin-top:0}
+  .ob-card{padding:20px 16px 18px;border-radius:22px;margin-bottom:96px}
+  .ob-head h1{font-size:28px} .ob-head p{font-size:13.5px}
+  .ob-import{font-size:13px}
+  /* 번호와 제목을 한 줄로, 내용은 전체 폭 */
+  .ob-sec{display:block;padding:18px 0}
+  .ob-sec .n{display:inline-grid;width:26px;height:26px;font-size:15px;vertical-align:4px;margin-right:8px}
+  .ob-sec h2{display:inline;font-size:22px}
+  .ob-sec .why{margin:6px 0 10px}
+  .ob-opts{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+  .ob-opts button{min-width:0;padding:12px 10px;font-size:14.5px}
+  .ob-opts.grid2 button{text-align:left;padding:10px 12px}
+  /* 휴일 규칙은 한 줄에 하나, 고른 것에 ✓ */
+  .ob-opts.list{grid-template-columns:1fr}
+  .ob-opts.list button{display:flex;justify-content:space-between;align-items:center;text-align:left;padding:13px 14px}
+  .ob-opts.list button[aria-pressed="true"]::after{content:"✓";font-weight:700}
+  .ob-skins button{padding:10px 4px 8px;font-size:12.5px}
+  /* 시작 버튼은 화면 아래에 고정 */
+  .ob-go{position:fixed;left:0;right:0;bottom:0;z-index:30;margin:0;padding:14px 16px calc(14px + env(safe-area-inset-bottom,0px));background:linear-gradient(to bottom,transparent,var(--desk) 32%)}
+  body[data-first]{padding-bottom:0}
+}
 body[data-first] .tabs{visibility:hidden}
 .nudge{max-width:1480px;margin:0 auto 12px;padding:10px 12px 10px 16px;border-radius:14px;background:var(--sheet);border:1px solid var(--sheet-edge);display:flex;gap:10px;align-items:center;flex-wrap:wrap;font-size:13.5px;box-shadow:0 6px 18px -12px rgba(70,80,120,.35);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px)}
 .nudge span{flex:1;min-width:200px}
@@ -1054,7 +1081,7 @@ function renderWelcome() {
     <section class="ob-sec"><span class="n">2</span><h2>월급날은 언제예요?</h2><p class="why">월급날부터 다음 월급 전날까지를 한 달로 묶어서 봐요.</p>
       <div class="ob-body"><div class="frow"><select class="field" id="wDay" style="max-width:120px">${Array.from({length:28},(_,i)=>`<option value="${i+1}" ${w.day===i+1?"selected":""}>${i+1}일</option>`).join("")}</select></div>
         <div class="ob-preview">오늘 기준으로 <b>${mo}월 ${w.day}일 ~ ${end.getMonth()+1}월 ${end.getDate()}일</b>이 '${mo}월분'이에요.</div>
-        <div class="ob-opts">${opt("rule","holiday","주말·공휴일엔 앞당김")}${opt("rule","weekend","주말엔 앞당김")}${opt("rule","none","항상 그날")}</div>
+        <div class="ob-opts list">${opt("rule","holiday","주말·공휴일엔 앞당김")}${opt("rule","weekend","주말엔 앞당김")}${opt("rule","none","항상 그날")}</div>
         <p class="why" style="margin:0">월급날이 쉬는 날이면 그 전 평일에 들어오는 경우가 많아요. 그렇게 일찍 들어온 월급도 새 달 수입으로 넣어 줘요. 공휴일은 1번에서 고른 돈에 맞춰 ${w.currency === "KRW" ? "한국" : "일본"} 공휴일로 계산해요.</p></div></section>
     <section class="ob-sec"><span class="n">3</span><h2>한 달 식비 목표</h2><p class="why">식비 포켓에 목표 대비 게이지가 생겨요. 넘어도 입력은 막지 않아요. 비워 두면 목표 없이 시작해요.</p>
       <div class="ob-body"><div class="frow"><span class="lab">${cur}</span><input class="field" id="wGoal" inputmode="numeric" value="${esc(w.goal)}" style="max-width:180px" placeholder="목표 없음"><span class="muted">${unit} / 월</span></div><div class="err" id="wErr" hidden></div></div></section>
@@ -1063,7 +1090,7 @@ function renderWelcome() {
         <div class="frow"><input class="field" id="wNewCat" placeholder="직접 추가 (예: 반려동물)" maxlength="20"><button class="btn" type="button" id="wAddCat">추가</button></div></div></section>
     <section class="ob-sec" style="border-bottom:0"><span class="n">5</span><h2>계산기 꾸미기</h2><p class="why">누를 때마다 타닥 소리가 나요. 눌러서 미리 들어 보세요.</p>
       <div class="ob-body"><div class="ob-skins">${[["clear","클리어 아크릴"],["peach","피치"],["sky","스카이"]].map(([v,n]) => `<button type="button" data-w="skin" data-v="${v}" aria-pressed="${w.skin===v}"><span class="mini ${v}">${"<i></i>".repeat(9)}</span>${n}</button>`).join("")}</div>
-        <div class="ob-opts">${["thock","clicky","acrylic"].map((v,i) => `<button type="button" data-w="preset" data-v="${v}" aria-pressed="${w.sound && w.preset===v}">${["도각","찰칵","톡톡"][i]}<small>${["묵직한 기계식","청축 느낌","아크릴 키캡"][i]}</small></button>`).join("")}<button type="button" data-w="mute" aria-pressed="${!w.sound}">소리 끄기<small>조용히</small></button></div></div></section>
+        <div class="ob-opts grid2">${["thock","clicky","acrylic"].map((v,i) => `<button type="button" data-w="preset" data-v="${v}" aria-pressed="${w.sound && w.preset===v}">${["도각","찰칵","톡톡"][i]}<small>${["묵직한 기계식","청축 느낌","아크릴 키캡"][i]}</small></button>`).join("")}<button type="button" data-w="mute" aria-pressed="${!w.sound}">소리 끄기<small>조용히</small></button></div></div></section>
     <div class="privacy">🔒 기록은 <b>이 기기의 브라우저에만</b> 저장돼요. 서버로 보내지 않아서 다른 사람은 볼 수 없어요. 대신 가끔 <b>설정 → 백업</b>에서 백업 파일을 저장해 두세요.</div>
     <div class="ob-go"><button class="go" type="button" id="wStart">가계부 시작하기</button></div>
   </div>`;
