@@ -350,9 +350,11 @@ textarea.field{height:auto;padding:10px 12px;resize:vertical;font-family:var(--h
 .memo-card{position:relative;background:color-mix(in srgb,var(--cb) 70%,transparent);color:var(--ci);border-radius:4px 14px 6px 12px;padding:16px 14px 12px;transform:rotate(var(--r,0deg));box-shadow:0 6px 14px -10px rgba(58,57,64,.5)}
 .memo-card::before{content:"";position:absolute;top:-8px;left:50%;width:54px;height:16px;margin-left:-27px;background:color-mix(in srgb,var(--desk) 55%,transparent);border:1px solid var(--sheet-edge);transform:rotate(-3deg);backdrop-filter:blur(2px)}
 .memo-card .k{font-family:var(--hand);font-size:16px;opacity:.85}
-.memo-card .v{font-family:var(--hand);font-size:28px;font-weight:700;line-height:1.1}
+/* 큰 금액(원 8자리 ₩98,765,432까지)도 카드 한 줄에: 카드 폭 기준으로 글자 크기를 줄인다 */
+.memo-card{container-type:inline-size}
+.memo-card .v{font-family:var(--hand);font-size:clamp(14px,17cqi,28px);font-weight:700;line-height:1.1;overflow-wrap:anywhere}
 .memo-card .d{font-size:11.5px;opacity:.85;margin-top:2px}
-.up{color:var(--over)} .down{color:var(--ok)}
+.up{color:var(--ink-2)} .down{color:var(--ok)}
 .section{margin-top:22px}
 .section h3{font-family:var(--hand);font-size:23px;margin:0 0 8px;font-weight:700}
 .cattable{width:100%;border-collapse:collapse}
@@ -466,13 +468,6 @@ body[data-first] .layout{grid-template-columns:minmax(0,1fr);grid-template-areas
 body[data-first] .tabs{visibility:hidden}
 .nudge{max-width:1480px;margin:0 auto 12px;padding:10px 12px 10px 16px;border-radius:14px;background:var(--sheet);border:1px solid var(--sheet-edge);display:flex;gap:10px;align-items:center;flex-wrap:wrap;font-size:13.5px;box-shadow:0 6px 18px -12px rgba(70,80,120,.35);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px)}
 .nudge span{flex:1;min-width:200px}
-.welcome .opt{display:flex;gap:6px;flex-wrap:wrap}
-.welcome .opt button{flex:1;min-width:90px;border:1.5px solid var(--line);background:var(--sheet);border-radius:14px;padding:10px 8px;font-size:14px;color:var(--ink-2)}
-.welcome .opt button[aria-pressed="true"]{border-color:var(--ink);color:var(--ink);background:var(--desk)}
-.steps{display:grid;gap:12px;margin-top:14px;counter-reset:st}
-.steps li{list-style:none;display:grid;grid-template-columns:30px 1fr;gap:10px;align-items:start;font-size:14px;line-height:1.55;color:var(--ink-2)}
-.steps li::before{counter-increment:st;content:counter(st);display:grid;place-items:center;width:28px;height:28px;border-radius:50%;background:var(--ink);color:var(--desk);font-family:var(--hand-en);font-size:17px}
-.steps b{color:var(--ink);font-weight:500}
 .privacy{margin-top:16px;padding:12px 14px;border-radius:14px;background:var(--mint);color:var(--mint-ink);font-size:13px;line-height:1.55}
 .set-card .kv{display:grid;grid-template-columns:auto 1fr;gap:4px 12px;font-size:13px;color:var(--ink-2)}
 .set-card .kv b{color:var(--ink);font-weight:500}
@@ -511,7 +506,7 @@ body[data-first] .tabs{visibility:hidden}
     <div class="frow"><span class="lab">날짜</span><input class="field" type="date" id="fDate"></div>
     <select class="field" id="fPeriod" hidden aria-label="어느 달분"></select>
     <div class="frow"><span class="lab">결제</span><div class="seg" id="paySeg" style="flex:1"></div></div>
-    <div class="first-tip" id="firstTip" hidden>💡 <span>첫 기록은 <b>월급</b>부터 넣어 보세요. '수입'이 골라져 있어요. 금액을 치고 아래 버튼을 누르면 월급 포켓에 지폐가 쌓여요.</span></div>
+    <div class="first-tip" id="firstTip" hidden>💡 <span id="firstTipMsg"></span></div>
     <label class="check" id="specialWrap"><input type="checkbox" id="fSpecial"> 특별지출 (생활비 합계에서 빼요)</label>
   </section>
 
@@ -608,10 +603,6 @@ function isHoliday(d) {
   return false;
 }
 const pkey = (y, m) => `${y}-${pad(m)}`;
-function periodOf(d) {
-  if (d.getDate() >= settings().cycleStartDay) return pkey(d.getFullYear(), d.getMonth()+1);
-  const p = new Date(d.getFullYear(), d.getMonth(), 0); return pkey(p.getFullYear(), p.getMonth()+1);
-}
 // 한국 공휴일 (월급날을 앞당길지 판단하는 데 쓴다). 공개판 index.html 에 그대로 들어간다.
 // 설날·부처님오신날·추석은 음력이라 2022~2035년 양력 날짜를 표로 둔다. 표 밖의 해는 양력 공휴일만 본다.
 // 선거일·임시공휴일은 넣지 않았다.
@@ -658,11 +649,18 @@ function payday(y, m) {
   while (d.getDay()===0 || d.getDay()===6 || (useHoliday && isPublicHoliday(d))) d = addDays(d,-1);
   return d;
 }
-function incomePeriodOf(d) { return d >= payday(d.getFullYear(), d.getMonth()+1) ? pkey(d.getFullYear(), d.getMonth()+1) : periodOf(d); }
+// 한 달 = 앞당긴(보정한) 월급날 ~ 다음 달 월급날 전날. 수입·지출·저축·투자·이체 모두 같은 기준 (S0.7)
+// 월급날이 1일 근처면 앞당긴 날이 앞달 말일일 수 있어서 다음 달 월급날부터 본다
+function periodOf(d) {
+  const y = d.getFullYear(), m = d.getMonth()+1, nx = new Date(y, m, 1), pv = new Date(y, m-2, 1);
+  if (d >= payday(nx.getFullYear(), nx.getMonth()+1)) return pkey(nx.getFullYear(), nx.getMonth()+1);
+  return d >= payday(y, m) ? pkey(y, m) : pkey(pv.getFullYear(), pv.getMonth()+1);
+}
 function shiftKey(k, n) { const [y,m] = k.split("-").map(Number); const d = new Date(y, m-1+n, 1); return pkey(d.getFullYear(), d.getMonth()+1); }
 function periodTitle(k) { const [y,m] = k.split("-").map(Number); return `${y}년 ${m}월분`; }
 function periodShort(k) { const [y,m] = k.split("-").map(Number); return `${y}.${pad(m)}`; }
-function periodRange(k) { const [y,m] = k.split("-").map(Number); const s = settings().cycleStartDay; const e = new Date(y, m, s-1); return `${m}.${s} – ${e.getMonth()+1}.${e.getDate()}`; }
+function periodRange(k) { const [y,m] = k.split("-").map(Number), s = payday(y, m), nx = new Date(y, m, 1), e = addDays(payday(nx.getFullYear(), nx.getMonth()+1), -1);
+  return `${s.getMonth()+1}.${s.getDate()} – ${e.getMonth()+1}.${e.getDate()}`; }
 
 // ---------- 데이터 파생 ----------
 const periodDoc = (k) => S.docs["periods/"+k] || {key:k, note:"", entries:[]};
@@ -682,18 +680,78 @@ function totals(k) {
 }
 function cumulative(type, upto) { let s = 0; for (const k of periodKeys()) if (k <= upto) for (const e of entriesOf(k)) if (e.type === type) s += e.amount; return s; }
 
+// ---------- 지난 기록을 월급날 기준 달로 맞추기 (S0.7) ----------
+// 수입이 아닌 기록 중, 날짜로 다시 계산한 달과 저장된 달이 다른 것을 옮긴다. 수입은 '○월분'을 직접 고를 수 있어서 그대로 둔다
+// docs 안의 설정(월급날·휴일 규칙)으로 계산해서 {changes, moved}를 돌려준다. docs 는 바꾸지 않는다
+function realignChanges(docs) {
+  const keep = S.docs; S.docs = docs; // settings()·periodOf() 가 docs 의 설정을 보게 잠깐 바꿔 끼운다
+  try {
+    const changes = {}, moved = [];
+    for (const p of Object.keys(docs)) {
+      if (!p.startsWith("periods/") || !docs[p]) continue;
+      const k = p.slice(8), list = docs[p].entries || [], stay = [];
+      for (const e of list) {
+        const nk = e.type === "income" || !e.date ? k : periodOf(parseISO(e.date));
+        if (nk === k) stay.push(e); else moved.push({...e, periodKey:nk});
+      }
+      if (stay.length !== list.length) changes[p] = {...clone(docs[p]), entries:stay};
+    }
+    for (const e of moved) {
+      const p = "periods/" + e.periodKey;
+      if (!changes[p]) changes[p] = docs[p] ? clone(docs[p]) : {key:e.periodKey, note:"", entries:[]};
+      changes[p].entries = [...(changes[p].entries || []), e];
+    }
+    return {changes, moved:moved.length};
+  } finally { S.docs = keep; }
+}
+// 앱을 열 때·설정을 바꿨을 때 실행한다. 두 번 실행해도 결과가 같다(두 번째는 0건)
+function realignPeriods(prefix = "") {
+  if (S.dbState !== "ok") return 0;
+  const r = realignChanges(S.docs); if (!r.moved) return 0;
+  if (!keepBeforeRealign()) return 0;
+  // 되돌리기 목록의 이전 상태는 옮기기 전 달 묶음이라, 되살리면 옮긴 기록이 두 달에 겹친다. 옮기면 되돌리기 목록을 비운다
+  S.undo = [];
+  commit(r.changes, `${prefix}${r.moved}건을 월급날 기준 달로 옮겼어요`, {noUndo:true});
+  return r.moved;
+}
+
 // ---------- 저장 (이 기기의 브라우저) ----------
 const LS_DOCS = "tadak-gagebu:docs", LS_META = "tadak-gagebu:meta";
+const LS_BAK = "tadak-gagebu:docs.bak", LS_BROKEN = "tadak-gagebu:docs.broken";
 const local = { meta:{} };
-function readLS(key) { try { const v = localStorage.getItem(key); return v ? JSON.parse(v) : null; } catch (e) { return undefined; } }
+// 저장소를 못 쓰면 null, 쓸 수 있으면 {raw}
+function lsGet(key) { try { return {raw: localStorage.getItem(key)}; } catch (e) { return null; } }
+// 기록 묶음으로 읽을 수 없으면(깨진 JSON, 객체가 아님) null
+function parseDocs(raw) { if (!raw) return {}; try { const v = JSON.parse(raw); return v && typeof v === "object" && !Array.isArray(v) ? v : null; } catch (e) { return null; } }
+function readLS(key) { const g = lsGet(key); return g ? parseDocs(g.raw) : null; }
+// 저장: 바뀐 문서 이름만 모아 두었다가 잠깐 뒤 한 번에 쓴다
+const dirty = new Set();
 let saveTimer = null;
-function writeDoc() {
-  clearTimeout(saveTimer);
-  saveTimer = setTimeout(() => {
-    try { localStorage.setItem(LS_DOCS, JSON.stringify(S.docs)); }
-    catch (e) { setBanner("이 브라우저에 저장하지 못했어요. 저장 공간이 부족하거나 저장이 막혀 있어요. 설정 → 백업에서 백업 파일을 꼭 저장해 두세요."); }
-    autoBackupSoon(); checkNudge();
-  }, 120);
+function writeDoc(path) { dirty.add(path); clearTimeout(saveTimer); saveTimer = setTimeout(flushSave, 120); }
+// 쓰기 직전에 저장소를 다시 읽고, 이 탭에서 바꾼 문서만 덮어쓴다. 다른 탭이 바꾼 문서는 그대로 남는다
+function flushSave() {
+  clearTimeout(saveTimer); saveTimer = null;
+  if (!dirty.size || S.dbState !== "ok") return;
+  const g = lsGet(LS_DOCS), fresh = g ? parseDocs(g.raw) : null, out = fresh || clone(S.docs);
+  let elsewhere = false;
+  if (fresh) for (const p of new Set([...Object.keys(fresh), ...Object.keys(S.docs)])) if (!dirty.has(p) && JSON.stringify(fresh[p]) !== JSON.stringify(S.docs[p])) { elsewhere = true; break; }
+  for (const p of dirty) { if (p in S.docs) out[p] = S.docs[p]; else delete out[p]; }
+  try { localStorage.setItem(LS_DOCS, JSON.stringify(out)); dirty.clear(); S.docs = out; setSaveFailed(false); }
+  catch (e) { setSaveFailed(true); }
+  if (elsewhere) renderSoon();
+  autoBackupSoon(); checkNudge();
+}
+// 저장 실패: 상태 점을 빨갛게, 위에 안내. 다음 저장이 되면 풀린다
+function setSaveFailed(on) {
+  if (!!S.saveFailed === on) return;
+  S.saveFailed = on;
+  setBanner(on ? "이 브라우저에 저장하지 못했어요. 저장 공간이 부족하거나 저장이 막혀 있어요. 이 창을 닫기 전에 설정 → 백업에서 백업 파일을 꼭 저장해 두세요." : (S.keepBanner || ""));
+  paintSaveDot();
+}
+function paintSaveDot() {
+  const dot = $("syncDot");
+  if (S.saveFailed) { dot.className = "dot off"; dot.title = $("syncState").textContent = "저장 실패"; }
+  else if (S.dbState === "ok" && dot.classList.contains("off")) { dot.className = "dot"; dot.title = $("syncState").textContent = "저장됨"; }
 }
 function saveMeta() { try { localStorage.setItem(LS_META, JSON.stringify(local.meta)); } catch (e) {} }
 function commit(changes, label, opts = {}) {
@@ -710,14 +768,34 @@ function undo() {
   S.editing = null; render(); toast("되돌렸어요: " + u.label, false);
 }
 async function connect() {
-  const docs = readLS(LS_DOCS);
-  if (docs === undefined) { S.dbState = "none"; setBanner("이 브라우저에서는 기록을 저장할 수 없어요. 시크릿(비공개) 창이라면 일반 창으로 열어 주세요."); render(); return; }
-  S.docs = docs || {};
+  const g = lsGet(LS_DOCS);
+  if (!g) { S.dbState = "none"; setBanner("이 브라우저에서는 기록을 저장할 수 없어요. 시크릿(비공개) 창이라면 일반 창으로 열어 주세요."); render(); return; }
+  let docs = parseDocs(g.raw);
+  if (!docs) {
+    // 저장된 내용이 깨져서 읽을 수 없다: 원문을 다른 이름으로 옮겨 두고 빈 가계부로 시작한다. 옮기지 못하면 덮어쓰지 않게 저장을 멈춘다
+    try { localStorage.setItem(LS_BROKEN, g.raw); }
+    catch (e) { S.dbState = "none"; setBanner("저장된 기록을 읽지 못했어요. 원래 내용을 지키려고 이번에는 저장하지 않아요. 백업 파일이 있으면 다른 브라우저에서 불러와 주세요."); render(); return; }
+    docs = {};
+    S.keepBanner = "저장된 기록을 읽지 못했어요(내용이 깨져 있었어요). 원래 내용은 이 기기에 따로 보관해 두었어요. 백업 파일이 있으면 불러와 주세요.";
+    setBanner(S.keepBanner);
+  }
+  S.docs = docs;
   local.meta = readLS(LS_META) || {};
   S.firstRun = !S.docs["meta/settings"];
   S.dbState = "ok";
-  // 다른 탭에서 바뀐 내용 반영
-  addEventListener("storage", e => { if (e.key === LS_DOCS) { S.docs = readLS(LS_DOCS) || {}; renderSoon(); } });
+  realignPeriods(); // 지난 기록을 지금 월급날 기준 달로 (S0.7)
+  // 기록이 하나도 없으면 첫 기록(월급)을 넣기 좋게 '수입'을 골라 둔다
+  if (!S.firstRun && totalCount() === 0) S.type = "income";
+  // 다른 탭에서 바뀐 내용 반영. 이 탭에서 아직 쓰지 않은 문서는 이 탭 내용을 남긴다
+  addEventListener("storage", e => {
+    if (e.key !== LS_DOCS || e.newValue == null) return;
+    const fresh = parseDocs(e.newValue); if (!fresh) return;
+    for (const p of dirty) { if (p in S.docs) fresh[p] = S.docs[p]; else delete fresh[p]; }
+    S.docs = fresh; renderSoon();
+  });
+  // 화면을 떠나거나 앱을 내릴 때 미뤄 둔 저장을 바로 한다
+  addEventListener("pagehide", flushSave);
+  document.addEventListener("visibilitychange", () => { if (document.visibilityState === "hidden") flushSave(); });
   // 브라우저에 "이 사이트 데이터는 지우지 말아 달라"고 요청
   try { if (navigator.storage?.persisted) S.persisted = await navigator.storage.persisted(); } catch (e) {}
   render(); checkNudge(); restoreAutoBackup();
@@ -895,7 +973,7 @@ function buildCalc() {
 }
 function targetPeriod() {
   const d = $("fDate").value ? parseISO($("fDate").value) : new Date();
-  if (S.type === "income") return S.periodOverride || incomePeriodOf(d);
+  if (S.type === "income") return S.periodOverride || periodOf(d);
   return periodOf(d);
 }
 function renderCalc() {
@@ -910,14 +988,17 @@ function renderCalc() {
   for (const b of $("paySeg").children) b.setAttribute("aria-pressed", (b.dataset.p || null) === S.pay);
   $("catChips").hidden = S.type !== "expense";
   if (!catById(S.cat)) S.cat = cats()[0]?.id;
-  $("catChips").innerHTML = cats().map(c => `<button class="chip" style="${catStyle(c.id)}" data-c="${c.id}" aria-pressed="${c.id===S.cat}">${esc(c.name)}</button>`).join("");
+  $("catChips").innerHTML = cats().map(c => `<button class="chip" style="${catStyle(c.id)}" data-c="${esc(c.id)}" aria-pressed="${c.id===S.cat}">${esc(c.name)}</button>`).join("");
   $("specialWrap").hidden = S.type !== "expense";
+  if ($("firstTipMsg")) $("firstTipMsg").innerHTML = S.type === "income"
+    ? "첫 기록은 <b>월급</b>부터 넣어 보세요. '수입'이 골라져 있어요. 금액을 치고 아래 버튼을 누르면 월급 포켓에 지폐가 쌓여요."
+    : "첫 기록은 <b>월급</b>부터 넣어 보세요. 위에서 '수입'을 누르고 금액을 치면 월급 포켓에 지폐가 쌓여요.";
   if (S.type !== "expense") $("fSpecial").checked = false;
   const fp = $("fPeriod");
   if (S.type === "income") {
-    const d = $("fDate").value ? parseISO($("fDate").value) : new Date(), auto = incomePeriodOf(d), base = periodOf(d);
+    const d = $("fDate").value ? parseISO($("fDate").value) : new Date(), auto = periodOf(d), base = auto;
     const opts = [...new Set([shiftKey(base,-1), base, shiftKey(base,1), auto])].sort();
-    fp.innerHTML = opts.map(k => `<option value="${k}">${periodTitle(k)}${k===auto?" (자동)":""}</option>`).join("");
+    fp.innerHTML = opts.map(k => `<option value="${esc(k)}">${periodTitle(k)}${k===auto?" (자동)":""}</option>`).join("");
     fp.value = S.periodOverride || auto; fp.hidden = false;
   } else fp.hidden = true;
   const amt = S.expr ? exprValue() : 0, tp = targetPeriod();
@@ -988,9 +1069,10 @@ function render() {
   const dot = $("syncDot");
   dot.className = "dot " + (S.dbState === "ok" ? "" : S.dbState === "none" ? "off" : "wait");
   const st = S.dbState === "ok" ? "저장됨" : S.dbState === "none" ? "저장 안 됨" : "불러오는 중";
-  dot.title = st; $("syncState").textContent = st;
+  dot.title = st; $("syncState").textContent = st; paintSaveDot();
   $("undoBtn").disabled = !S.undo.length;
-  if (!S.period) S.period = periodOf(new Date());
+  // 설정(월급날·휴일 규칙)을 불러오기 전에는 기본값으로 계산되므로, 불러온 뒤 첫 화면에서 한 번 더 '오늘이 속한 달'을 정한다
+  if (!S.period || !S.periodSet) { S.period = periodOf(new Date()); S.periodSet = S.dbState === "ok"; }
   $("pTitle").textContent = periodShort(S.period);
   $("pRange").textContent = periodRange(S.period);
   for (const v of ["diary","summary","settings"]) $("v-"+v).setAttribute("aria-pressed", S.view===v);
@@ -1033,7 +1115,7 @@ function renderTabs() {
   if (S.view !== "diary") { tabs.innerHTML = `<button class="tab" role="tab" aria-selected="true" style="--cb:var(--sky);--ci:var(--sky-ink)">${S.view === "summary" ? "요약" : "설정"}</button>`; return; }
   const list = pagesList(totals(S.period));
   if (!list.find(p => p.id === S.page)) S.page = "salary";
-  tabs.innerHTML = list.map(p => `<button class="tab" role="tab" style="${p.style}" data-p="${p.id}" aria-selected="${p.id===S.page}">${esc(p.name)}${p.id!=="salary"&&p.amt?`<small>${yen(p.amt)}</small>`:""}</button>`).join("");
+  tabs.innerHTML = list.map(p => `<button class="tab" role="tab" style="${p.style}" data-p="${esc(p.id)}" aria-selected="${p.id===S.page}">${esc(p.name)}${p.id!=="salary"&&p.amt?`<small>${yen(p.amt)}</small>`:""}</button>`).join("");
   const sel = tabs.querySelector('[aria-selected="true"]');
   if (sel && tabs.scrollWidth > tabs.clientWidth) { const l = sel.offsetLeft - tabs.offsetLeft, r = l + sel.offsetWidth; if (l < tabs.scrollLeft) tabs.scrollLeft = l - 12; else if (r > tabs.scrollLeft + tabs.clientWidth) tabs.scrollLeft = r - tabs.clientWidth + 12; }
 }
@@ -1061,8 +1143,9 @@ function gaugeHtml(t) {
   return `<div class="gauge ${cls}"><div class="meta"><span>${esc(catName(s.foodCategoryId))} 목표 ${CUR()}${yen(s.foodGoal)}</span><span>${pct}%</span></div>
     <div class="bar" role="progressbar" aria-valuenow="${pct}" aria-valuemin="0" aria-valuemax="100" aria-label="식비 목표 사용률"><i style="width:${Math.min(100, pct)}%"></i></div><div class="meta"><span class="state">${state}</span><span>${CUR()}${yen(t.food)}</span></div></div>`;
 }
-const importBox = () => S.importData ? `<div class="edit" style="margin:0"><div>${S.importData.entries.length}건 · ${Object.keys(S.importData.byKey).length}개월을 가져와요. 지금 있는 기록은 모두 이 파일 내용으로 바뀌어요. (되돌리기로 되돌릴 수 있어요)</div>
-  <div class="btns"><button class="btn danger armed" id="impGo">가져오기</button><button class="btn" id="impX">취소</button></div></div>` : "";
+const importBox = () => { if (!S.importData) return ""; const n = totalCount(), m = S.importData.entries.length, mo = Object.keys(S.importData.byKey).length;
+  return `<div class="edit" style="margin:0"><div>${n ? `<b>지금 ${n}건이 ${m}건으로 바뀌어요</b> (파일: ${mo}개월). 두 기록이 합쳐지지 않고 이 파일 내용으로 바뀌어요. 지금 기록은 이 기기에 따로 보관해 두니, 설정 → 백업의 '불러오기 전으로 되돌리기'로 되돌릴 수 있어요.` : `${m}건 · ${mo}개월을 가져와요.`}</div>
+  <div class="btns"><button class="btn danger armed" id="impGo">가져오기</button><button class="btn" id="impX">취소</button></div></div>`; };
 const DEFAULT_CAT_IDS = DEFAULT_CATS.map(c => c.id);
 function renderWelcome() {
   const w = S.welcome || (S.welcome = {currency:"JPY", day:25, rule:"holiday", goal:"40000", cats:[...DEFAULT_CAT_IDS], extra:[], skin:"clear", sound:true, preset:"thock"});
@@ -1087,7 +1170,7 @@ function renderWelcome() {
     <section class="ob-sec"><span class="n">3</span><h2>한 달 식비 목표</h2><p class="why">식비 포켓에 목표 대비 게이지가 생겨요. 넘어도 입력은 막지 않아요. 비워 두면 목표 없이 시작해요.</p>
       <div class="ob-body"><div class="frow"><span class="lab">${cur}</span><input class="field" id="wGoal" inputmode="numeric" value="${esc(w.goal)}" style="max-width:180px" placeholder="목표 없음"><span class="muted">${unit} / 월</span></div><div class="err" id="wErr" hidden></div></div></section>
     <section class="ob-sec"><span class="n">4</span><h2>어떤 카테고리를 쓸까요?</h2><p class="why">눌러서 끄고 켤 수 있어요. 나중에 설정에서 언제든 바꿀 수 있어요.</p>
-      <div class="ob-body"><div class="ob-cats">${allCats.map((c,i) => `<button type="button" data-cat="${c.id}" style="--cb:var(--c${(i%9)+1});--ci:var(--c${(i%9)+1}i)" aria-pressed="${w.cats.includes(c.id)}" ${c.id==="food"?"disabled title='식비 목표에 쓰여서 항상 켜져요'":""}>${esc(c.name)}</button>`).join("")}</div>
+      <div class="ob-body"><div class="ob-cats">${allCats.map((c,i) => `<button type="button" data-cat="${esc(c.id)}" style="--cb:var(--c${(i%9)+1});--ci:var(--c${(i%9)+1}i)" aria-pressed="${w.cats.includes(c.id)}" ${c.id==="food"?"disabled title='식비 목표에 쓰여서 항상 켜져요'":""}>${esc(c.name)}</button>`).join("")}</div>
         <div class="frow"><input class="field" id="wNewCat" placeholder="직접 추가 (예: 반려동물)" maxlength="20"><button class="btn" type="button" id="wAddCat">추가</button></div></div></section>
     <section class="ob-sec" style="border-bottom:0"><span class="n">5</span><h2>계산기 꾸미기</h2><p class="why">누를 때마다 타닥 소리가 나요. 눌러서 미리 들어 보세요.</p>
       <div class="ob-body"><div class="ob-skins">${[["clear","클리어 아크릴"],["peach","피치"],["sky","스카이"]].map(([v,n]) => `<button type="button" data-w="skin" data-v="${v}" aria-pressed="${w.skin===v}"><span class="mini ${v}">${"<i></i>".repeat(9)}</span>${n}</button>`).join("")}</div>
@@ -1148,7 +1231,7 @@ function recordList(list, {showCat = false, k, title}) {
     const tags = (e.isSpecial ? `<span class="tag">특별</span>` : "") + (dim ? `<span class="tag grey">합계 제외</span>` : "");
     const memo = e.memo || (isExp ? catName(e.category) : TYPE_NAME[e.type]);
     const sign = e.type === "income" ? "+" : isExp ? "−" : "";
-    h += `<button class="rec ${dim?"dim":""}" data-edit="${e.id}" data-k="${k}">
+    h += `<button class="rec ${dim?"dim":""}" data-edit="${esc(e.id)}" data-k="${esc(k)}">
       <span class="rd ${same?"same":""}"><span class="y">${d.getFullYear()}.</span>${pad(d.getMonth()+1)}.${pad(d.getDate())}.<b class="${w===0?"sun":w===6?"sat":""}">${DOW_EN[w]}</b></span>
       <span class="rp" aria-label="${e.payment==="cash"?"현금":e.payment==="card"?"카드":"결제수단 미지정"}"><i class="${e.payment==="cash"?"on":""}">현</i><i class="${e.payment==="card"?"on":""}">카</i></span>
       <span class="rm">${chip}${esc(memo)}${tags}</span><span class="ra ${e.type==="income"?"plus":""}">${sign}${yen(e.amount)}</span></button>`;
@@ -1160,16 +1243,16 @@ function recordList(list, {showCat = false, k, title}) {
   return h;
 }
 function editPanel(e, k) {
-  const catOpts = cats().map(c => `<option value="${c.id}" ${c.id===e.category?"selected":""}>${esc(c.name)}</option>`).join("");
+  const catOpts = cats().map(c => `<option value="${esc(c.id)}" ${c.id===e.category?"selected":""}>${esc(c.name)}</option>`).join("");
   const typeOpts = TYPES.map(([t,n]) => `<option value="${t}" ${t===e.type?"selected":""}>${n}</option>`).join("");
   const armed = S.armedDelete === e.id;
-  return `<form class="edit" data-form="${e.id}" data-k="${k}">
-    <div class="frow"><span class="lab">날짜</span><input class="field" type="date" name="date" value="${e.date}" required><select class="field" name="type" aria-label="종류">${typeOpts}</select></div>
-    <div class="frow"><span class="lab">금액</span><input class="field" name="amount" value="${e.amount}" inputmode="numeric" aria-label="금액 (수식 가능)"><select class="field" name="category" aria-label="분류" ${e.type!=="expense"?"disabled":""}>${catOpts}</select></div>
+  return `<form class="edit" data-form="${esc(e.id)}" data-k="${esc(k)}">
+    <div class="frow"><span class="lab">날짜</span><input class="field" type="date" name="date" value="${esc(e.date)}" required><select class="field" name="type" aria-label="종류">${typeOpts}</select></div>
+    <div class="frow"><span class="lab">금액</span><input class="field" name="amount" value="${esc(e.amount)}" inputmode="numeric" aria-label="금액 (수식 가능)"><select class="field" name="category" aria-label="분류" ${e.type!=="expense"?"disabled":""}>${catOpts}</select></div>
     <div class="frow"><span class="lab">메모</span><input class="field" name="memo" value="${esc(e.memo)}" maxlength="120"></div>
     <div class="frow"><span class="lab">결제</span><select class="field" name="payment"><option value="">미지정</option><option value="cash" ${e.payment==="cash"?"selected":""}>현금</option><option value="card" ${e.payment==="card"?"selected":""}>카드</option></select>
       <label class="check"><input type="checkbox" name="isSpecial" ${e.isSpecial?"checked":""} ${e.type!=="expense"?"disabled":""}> 특별지출</label></div>
-    ${e.type==="income"?`<div class="frow"><span class="lab">달</span><select class="field" name="periodKey">${[shiftKey(k,-1),k,shiftKey(k,1)].map(p=>`<option value="${p}" ${p===k?"selected":""}>${periodTitle(p)}</option>`).join("")}</select></div>`:""}
+    ${e.type==="income"?`<div class="frow"><span class="lab">달</span><select class="field" name="periodKey">${[shiftKey(k,-1),k,shiftKey(k,1)].map(p=>`<option value="${esc(p)}" ${p===k?"selected":""}>${periodTitle(p)}</option>`).join("")}</select></div>`:""}
     ${e.original?`<div class="note">원본 엑셀: ${esc(e.original)} (${esc(String(e.source).replace("excel:",""))})</div>`:""}
     <div class="err" data-err hidden></div>
     <div class="btns"><button class="btn primary" type="submit">저장</button><button class="btn" type="button" data-close>닫기</button><button class="btn danger ${armed?"armed":""}" type="button" data-del>${armed?"한 번 더 누르면 삭제":"삭제"}</button></div>
@@ -1189,13 +1272,13 @@ function saveEdit(form) {
     isSpecial: type==="expense" && fd.get("isSpecial")==="on", updatedAt:new Date().toISOString()};
   const d = parseISO(date);
   let nk = periodOf(d);
-  if (type === "income") nk = (old.type === "income" && old.date === date && fd.get("periodKey")) ? fd.get("periodKey") : incomePeriodOf(d);
+  if (type === "income" && old.type === "income" && old.date === date && fd.get("periodKey")) nk = fd.get("periodKey");
   e.periodKey = nk;
   const changes = {};
   if (nk === k) { doc.entries[i] = e; changes["periods/"+k] = doc; }
   else { doc.entries.splice(i,1); changes["periods/"+k] = doc; const nd = clone(periodDoc(nk)); nd.key = nk; nd.entries = [...(nd.entries||[]), e]; changes["periods/"+nk] = nd; }
   S.editing = null;
-  commit(changes, nk === k ? "고쳤어요" : `고쳐서 ${periodTitle(nk)}로 옮겼어요`);
+  commit(changes, nk === k ? "고쳤어요" : `고쳐서 ${periodTitle(nk)}으로 옮겼어요`);
 }
 function deleteEntry(id, k) {
   if (S.busy) return;
@@ -1226,19 +1309,24 @@ function renderSummary() {
       <div class="memo-card" style="--cb:var(--mint);--ci:var(--mint-ink);--r:-1deg"><div class="k">저축 · 투자</div><div class="v">${CUR()}${yen(t.saving + t.investment)}</div><div class="d">누적 ${CUR()}${yen(cumulative("saving",k)+cumulative("investment",k))}</div></div>
     </div>${gaugeHtml(t)}`;
   const sp = entriesOf(k).filter(e => e.isSpecial);
-  left += `<div class="section"><h3>특이사항</h3><textarea class="field" id="noteBox" rows="3" placeholder="이 달에 있었던 일 (예: 8/27~31 엄마·언니 방문)">${esc(periodDoc(k).note||"")}</textarea>
-    <div class="note" style="margin-top:4px">칸을 벗어나면 저장돼요.</div>
+  left += `<div class="section"><h3>특이사항</h3><textarea class="field" id="noteBox" rows="3" placeholder="이 달에 있었던 일 (예: 친구 결혼식, 이사)"${""}>${esc(periodDoc(k).note||"")}</textarea>
+    <div class="note" style="margin-top:4px">${"칸을 벗어나면 저장돼요."}</div>
     ${sp.length ? recordList(sp, {showCat:true, k, title:"이 달의 특별지출"}) : ""}</div>`;
   const rows = cats().map(c => ({c, v:t.byCat[c.id]||0, p:pt.byCat[c.id]||0})).filter(r => r.v || r.p).sort((a,b) => b.v - a.v);
   const max = Math.max(1, ...rows.map(r => r.v));
+  const usedBefore = (id) => periodKeys().some(p => p < k && entriesOf(p).some(e => e.type === "expense" && e.category === id));
+  const cmp = (r) => { const d = r.v - r.p;
+    if (!r.p) return usedBefore(r.c.id) ? `<span class="faint" title="지난달 이 분류 기록 없음">–</span>` : `<span class="faint">첫 달</span>`;
+    return d === 0 ? "<span class='faint'>—</span>" : `<span class="${d>0?"up":"down"}">${d>0?"▲":"▼"}${yen(Math.abs(d))}</span>`; };
   let right = `${ARROW("auto;right:24px","20px",-10)}<div class="h" style="margin-top:4px">카테고리별 지출</div><div class="sub">오른쪽은 지난달(${periodShort(pk)}) 대비</div>`;
   right += rows.length ? `<div style="overflow-x:auto;margin-top:8px"><table class="cattable"><tbody>${rows.map(r => {
-      const d = r.v - r.p, pct = t.living ? Math.round(r.v/t.living*100) : 0;
+      const pct = t.living ? Math.round(r.v/t.living*100) : 0;
       return `<tr style="${catStyle(r.c.id)}"><td style="width:86px"><span class="chip">${esc(r.c.name)}</span></td><td><div class="bar"><i style="width:${r.v/max*100}%"></i></div></td>
-      <td class="r">${CUR()}${yen(r.v)}</td><td class="r faint pct" style="width:40px">${pct}%</td><td class="r" style="width:82px">${d===0?"<span class='faint'>—</span>":`<span class="${d>0?"up":"down"}">${d>0?"▲":"▼"}${yen(Math.abs(d))}</span>`}</td></tr>`; }).join("")}</tbody></table></div>`
+      <td class="r">${CUR()}${yen(r.v)}</td><td class="r faint pct" style="width:40px">${pct}%</td><td class="r" style="width:82px">${cmp(r)}</td></tr>`; }).join("")}</tbody></table></div>`
     : `<div class="empty">이 달은 지출 기록이 없어요</div>`;
   right += `<div class="section"><h3>월별 추이</h3>${trendChart(k)}</div>`;
   $("spread").innerHTML = page("left", left) + rings() + page("right", right);
+  const cw = $("spread").querySelector(".chartwrap"); if (cw) cw.scrollLeft = cw.scrollWidth;
 }
 function trendChart(cur) {
   const keys = []; for (let i = 11; i >= 0; i--) keys.push(shiftKey(cur, -i));
@@ -1281,15 +1369,18 @@ function renderSettings() {
       <select class="field" id="sRule">${[["holiday","주말·공휴일이면 앞당김"],["weekend","주말이면 앞당김"],["none","항상 그날"]].map(([v,n])=>`<option value="${v}" ${(s.holidayRule==="jp"?"holiday":s.holidayRule)===v?"selected":""}>${n}</option>`).join("")}</select></div>
     <div class="note">월급날부터 다음 달 전날까지를 한 달로 봐요. 공휴일은 고른 돈에 맞춰 ${s.currency==="KRW"?"한국":"일본"} 공휴일로 계산해요.</div></div>`;
   left += `<div class="set-card"><h3>식비 목표</h3><div class="frow"><span class="lab">목표</span><input class="field" id="sGoal" inputmode="numeric" value="${s.foodGoal}" style="max-width:150px"><span class="muted">${s.currency==="KRW"?"원":"엔"} / 월</span></div>
-    <div class="frow"><span class="lab">분류</span><select class="field" id="sFoodCat" style="max-width:200px">${cs.map(c=>`<option value="${c.id}" ${c.id===s.foodCategoryId?"selected":""}>${esc(c.name)}</option>`).join("")}</select></div>
+    <div class="frow"><span class="lab">분류</span><select class="field" id="sFoodCat" style="max-width:200px">${cs.map(c=>`<option value="${esc(c.id)}" ${c.id===s.foodCategoryId?"selected":""}>${esc(c.name)}</option>`).join("")}</select></div>
     <div class="note">80%를 넘으면 주황, 100%를 넘으면 빨강으로 바뀌어요. 넘어도 입력은 막지 않아요.</div><div class="err" id="goalErr" hidden></div></div>`;
   let right = `${ARROW("auto;right:24px","20px",-10)}<div class="set-card" style="padding-top:4px"><h3>대분류</h3>${cs.map(c => `<div class="catrow" style="${catStyle(c.id)}"><span class="dot"></span>
-      <input class="field" data-rename="${c.id}" value="${esc(c.name)}" maxlength="20" aria-label="${esc(c.name)} 이름">
-      <button class="btn" data-up="${c.id}" aria-label="${esc(c.name)} 위로">↑</button><button class="btn danger" data-cdel="${c.id}">삭제</button></div>
+      <input class="field" data-rename="${esc(c.id)}" value="${esc(c.name)}" maxlength="20" aria-label="${esc(c.name)} 이름">
+      <button class="btn" data-up="${esc(c.id)}" aria-label="${esc(c.name)} 위로">↑</button><button class="btn danger" data-cdel="${esc(c.id)}">삭제</button></div>
       ${S.catDelete===c.id ? `<div class="edit" style="margin:0"><div>${esc(c.name)}의 기록 ${countCat(c.id)}건을 어디로 옮길까요?</div>
-        <div class="frow"><select class="field" id="moveTo">${cs.filter(x=>x.id!==c.id).map(x=>`<option value="${x.id}" ${x.id==="other"?"selected":""}>${esc(x.name)}</option>`).join("")}</select>
-        <button class="btn danger armed" data-cdelgo="${c.id}">옮기고 삭제</button><button class="btn" data-cdelx>취소</button></div></div>` : ""}`).join("")}
+        <div class="frow"><select class="field" id="moveTo">${cs.filter(x=>x.id!==c.id).map(x=>`<option value="${esc(x.id)}" ${x.id==="other"?"selected":""}>${esc(x.name)}</option>`).join("")}</select>
+        <button class="btn danger armed" data-cdelgo="${esc(c.id)}">옮기고 삭제</button><button class="btn" data-cdelx>취소</button></div></div>` : ""}`).join("")}
     <div class="frow"><input class="field" id="newCat" placeholder="새 분류 이름" maxlength="20"><button class="btn primary" id="addCat">추가</button></div><div class="err" id="catErr" hidden></div></div>`;
+  const bak = readBak(), bakAt = bak ? new Date(bak.savedAt) : null;
+  const bakBox = () => !bak ? "" : `<div class="note" style="margin-top:4px"><b style="color:var(--ink)">불러오기 전 기록</b> · ${iso(bakAt)} ${pad(bakAt.getHours())}:${pad(bakAt.getMinutes())}에 불러오기 직전 기록 ${bak.count}건을 보관해 두었어요.</div>
+    <div class="btns" style="display:flex;gap:6px;flex-wrap:wrap"><button class="btn ${S.armRestore ? "danger armed" : ""}" id="impUndo">${S.armRestore ? `한 번 더 누르면 ${bak.count}건으로 되돌려요` : "불러오기 전으로 되돌리기"}</button>${S.armRestore ? `<button class="btn" id="impUndoX">취소</button>` : ""}</div>`;
   const m = local.meta, last = m.lastBackupAt ? `${m.lastBackupAt.slice(0,10)} (${daysSince(m.lastBackupAt)}일 전)` : "아직 없어요";
   const ios = /iphone|ipad|ipod/i.test(navigator.userAgent), standalone = matchMedia("(display-mode: standalone)").matches || navigator.standalone;
   right += `<div class="set-card"><h3>백업</h3>
@@ -1297,17 +1388,24 @@ function renderSettings() {
     <div class="kv"><span>저장된 기록</span><b>${totalCount()}건 · ${periodKeys().length}개월</b><span>마지막 백업</span><b>${last}</b>
       <span>저장소 보호</span><b>${S.persisted ? "켜짐 (브라우저가 함부로 지우지 않아요)" : "꺼짐"}</b></div>
     <div class="btns" style="display:flex;gap:6px;flex-wrap:wrap"><button class="btn primary" id="expJson">${useShare() ? "공유해서 백업" : "백업 파일 저장"}</button><button class="btn" id="impJson">백업 파일 불러오기</button><button class="btn" id="expCsv">CSV로 내보내기 (엑셀용)</button>${S.persisted ? "" : `<button class="btn" id="persist">저장소 보호 켜기</button>`}</div>
-    <div class="err" id="bkErr" hidden></div>${importBox()}
+    <div class="err" id="bkErr" hidden></div>${importBox()}${bakBox()}
     ${canAutoBackup() ? `<div class="note" style="margin-top:4px"><b style="color:var(--ink)">자동 백업</b> · 파일 하나를 골라 두면 기록할 때마다 그 파일에 저장해요. iCloud·Google Drive 폴더에 두면 클라우드에도 보관돼요.</div>
       <div class="btns" style="display:flex;gap:6px;flex-wrap:wrap">${!S.fileHandle ? `<button class="btn" id="autoOn">자동 백업 파일 고르기</button>` : S.fileHandleOk ? `<span class="note">연결됨: ${esc(S.fileHandle.name)}</span><button class="btn" id="autoOff">해제</button>` : `<span class="note">${esc(S.fileHandle.name)} · 다시 허용이 필요해요</span><button class="btn primary" id="autoRe">자동 백업 다시 켜기</button><button class="btn" id="autoOff">해제</button>`}</div>` : ""}
   </div>`;
   right += `<div class="set-card"><h3>홈 화면에 추가</h3>${standalone ? `<div class="note">앱으로 설치되어 있어요.</div>` :
     ios ? `<div class="note">Safari 아래쪽 <b style="color:var(--ink)">공유 버튼 → 홈 화면에 추가</b>를 누르면 앱처럼 쓸 수 있어요. 아이폰은 홈 화면에 추가해야 기록이 더 오래 안전하게 보관돼요.</div>` :
     S.installPrompt ? `<div class="btns"><button class="btn primary" id="install">앱으로 설치</button></div>` : `<div class="note">브라우저 메뉴의 '앱 설치' 또는 '홈 화면에 추가'를 누르면 앱처럼 쓸 수 있어요.</div>`}</div>`;
+  right += `<div class="note" id="appVersion" style="text-align:center;margin-top:16px">버전 8 · 2026-10-02 · 9264af53</div>`;
   $("spread").innerHTML = page("left", left, "") + rings() + page("right", right, "");
 }
 const countCat = (id) => periodKeys().reduce((a,k) => a + entriesOf(k).filter(e => e.category === id).length, 0);
-function saveSettings(patch, label) { const cur = clone(S.docs["meta/settings"] || DEFAULT_SETTINGS); commit({"meta/settings": {...cur, ...patch}}, label, {noUndo:true, quiet:!label}); }
+function saveSettings(patch, label) {
+  const cur = clone(S.docs["meta/settings"] || DEFAULT_SETTINGS); commit({"meta/settings": {...cur, ...patch}}, label, {noUndo:true, quiet:!label});
+  if (!["cycleStartDay", "holidayRule", "currency"].some(k => k in patch)) return;
+  // 월급날·휴일 규칙·통화가 바뀌면 지난 기록도 같은 기준으로 맞추고, 보이는 달도 오늘 기준으로 다시 정한다
+  realignPeriods(label ? label + " · " : "");
+  S.period = periodOf(new Date()); render();
+}
 function saveCats(items, label, extra = {}) { commit({"meta/categories": {items}, ...extra}, label); }
 
 // ---------- 내보내기 · 가져오기 ----------
@@ -1332,34 +1430,116 @@ function backupJson() {
     periods:periodKeys().map(k => ({key:k, note:periodDoc(k).note||""})).filter(p => p.note)}, null, 1);
 }
 function exportJson() { backupNow(); }
+// 백업 파일은 다른 사람이 고친 파일일 수도 있다고 보고, 쓰는 값만 형식을 확인해서 새로 만든다 (모르는 속성은 버린다)
+const RE_ID = /^[\w-]{1,40}$/, RE_PK = /^\d{4}-(0[1-9]|1[0-2])$/, RE_DATE = /^\d{4}-\d{2}-\d{2}$/;
+const isId = (v) => typeof v === "string" && RE_ID.test(v);
+const isPk = (v) => typeof v === "string" && RE_PK.test(v);
+const txt = (v, n) => typeof v === "string" ? v.slice(0, n) : "";
+const validDate = (v) => typeof v === "string" && RE_DATE.test(v) && iso(parseISO(v)) === v;
+const validTime = (v) => typeof v === "string" && v.length <= 40 && !Number.isNaN(Date.parse(v));
+function cleanEntry(e, ids) {
+  if (!e || typeof e !== "object" || !validDate(e.date) || !TYPE_NAME[e.type]) throw new Error("entry");
+  const amount = Math.round(Number(e.amount));
+  if (!(amount > 0 && amount <= 1e12)) throw new Error("amount");
+  if (e.id != null && !isId(e.id)) throw new Error("id");
+  if (e.periodKey != null && !isPk(e.periodKey)) throw new Error("periodKey");
+  const isExp = e.type === "expense";
+  if (isExp && !isId(e.category)) throw new Error("category");
+  let id = e.id || newId(); while (ids.has(id)) id = newId(); ids.add(id);
+  const d = parseISO(e.date), k = e.periodKey || periodOf(d);
+  const out = {id, date:e.date, type:e.type, category:isExp ? e.category : null, isSpecial:isExp && e.isSpecial === true,
+    memo:txt(e.memo, 500), amount, payment:e.payment === "cash" || e.payment === "card" ? e.payment : null, periodKey:k,
+    source:txt(e.source, 80), original:txt(e.original, 500)};
+  if (validTime(e.createdAt)) out.createdAt = e.createdAt;
+  if (validTime(e.updatedAt)) out.updatedAt = e.updatedAt;
+  return out;
+}
+function cleanCategories(list) {
+  if (!Array.isArray(list) || !list.length) return null;
+  if (list.length > 60) throw new Error("categories");
+  const seen = new Set();
+  return list.map((c, i) => {
+    if (!c || typeof c !== "object" || !isId(c.id) || seen.has(c.id) || typeof c.name !== "string" || !c.name.trim()) throw new Error("category item");
+    seen.add(c.id);
+    return {id:c.id, name:c.name.trim().slice(0, 20), order:Number.isFinite(c.order) ? c.order : i};
+  });
+}
+function cleanSettings(o) {
+  if (!o || typeof o !== "object") return null;
+  const out = {}, int = (v, lo, hi) => Number.isInteger(v) && v >= lo && v <= hi;
+  if (["JPY","KRW"].includes(o.currency)) out.currency = o.currency;
+  if (["holiday","weekend","none","jp"].includes(o.holidayRule)) out.holidayRule = o.holidayRule;
+  if (int(o.cycleStartDay, 1, 28)) out.cycleStartDay = o.cycleStartDay;
+  if (int(o.foodGoal, 0, 1e12)) out.foodGoal = o.foodGoal;
+  if (isId(o.foodCategoryId)) out.foodCategoryId = o.foodCategoryId;
+  if (SKINS.some(s => s[0] === o.calcSkin)) out.calcSkin = o.calcSkin;
+  if (THEMES.some(s => s[0] === o.theme)) out.theme = o.theme;
+  const so = o.sound;
+  if (so && typeof so === "object") {
+    const s = {};
+    if (typeof so.enabled === "boolean") s.enabled = so.enabled;
+    if (["thock","clicky","acrylic"].includes(so.preset)) s.preset = so.preset;
+    if (typeof so.volume === "number" && so.volume >= 0 && so.volume <= 1) s.volume = so.volume;
+    out.sound = {...DEFAULT_SETTINGS.sound, ...s};
+  }
+  return out;
+}
+function parseBackup(text) {
+  const j = JSON.parse(text);
+  if (!j || typeof j !== "object" || !Array.isArray(j.entries) || j.entries.length > 50000) throw new Error("entries");
+  const byKey = {}, ids = new Set(), entries = j.entries.map(e => cleanEntry(e, ids));
+  for (const e of entries) (byKey[e.periodKey] = byKey[e.periodKey] || []).push(e);
+  const notes = {};
+  for (const p of Array.isArray(j.periods) ? j.periods : []) if (p && isPk(p.key) && typeof p.note === "string") notes[p.key] = p.note.slice(0, 2000);
+  return {entries, byKey, notes, categories:cleanCategories(j.categories), settings:cleanSettings(j.settings)};
+}
 function readImport(file) {
   const err = $("bkErr"); if (err) err.hidden = true;
   const r = new FileReader();
   r.onload = () => {
     try {
-      const j = JSON.parse(r.result);
-      if (!Array.isArray(j.entries)) throw new Error("entries");
-      const byKey = {};
-      for (const e of j.entries) {
-        if (!e || !/^\d{4}-\d{2}-\d{2}$/.test(e.date) || !(Number(e.amount) > 0) || !TYPE_NAME[e.type]) throw new Error("entry");
-        const k = e.periodKey || (e.type === "income" ? incomePeriodOf(parseISO(e.date)) : periodOf(parseISO(e.date)));
-        (byKey[k] = byKey[k] || []).push({...e, amount:Math.round(Number(e.amount)), periodKey:k, id:e.id || newId()});
-      }
-      S.importData = {entries:j.entries, byKey, notes:Object.fromEntries((j.periods||[]).map(p => [p.key, p.note||""])), categories:j.categories, settings:j.settings};
+      S.importData = parseBackup(r.result);
       render();
     } catch (e) { if (err) { err.textContent = "가져올 수 없는 파일이에요. 이 앱에서 저장한 백업 파일(.json)을 골라 주세요."; err.hidden = false; } else toast("가져올 수 없는 파일이에요", false); }
   };
   r.readAsText(file);
 }
+// 불러오기는 합치기가 아니라 바꾸기라서, 바꾸기 직전 기록을 이 기기에 따로 보관한다 (새로고침해도 남는다)
+function readBak() { const b = readLS(LS_BAK); return b && b.docs && typeof b.docs === "object" && Number.isFinite(b.count) && !Number.isNaN(Date.parse(b.savedAt)) ? b : null; }
+function keepBeforeImport() {
+  try { localStorage.setItem(LS_BAK, JSON.stringify({savedAt:new Date().toISOString(), count:totalCount(), docs:S.docs})); return true; } catch (e) { return false; }
+}
+function restoreBeforeImport() {
+  const b = readBak(); if (!b) return;
+  const ok = p => /^periods[/][0-9]{4}-(0[1-9]|1[0-2])$|^meta[/](settings|categories)$/.test(p), changes = {};
+  for (const p of Object.keys(S.docs)) if (!(p in b.docs)) changes[p] = null;
+  for (const [p, d] of Object.entries(b.docs)) if (ok(p) && d && typeof d === "object") changes[p] = d;
+  S.firstRun = !changes["meta/settings"]; S.importData = null;
+  commit(changes, `불러오기 전 기록 ${b.count}건으로 되돌렸어요`);
+  try { localStorage.removeItem(LS_BAK); } catch (e) {}
+  render();
+}
+// 지난 기록을 월급날 기준 달로 옮기기 전(S0.7)에도 같은 방식으로 지금 기록을 따로 보관한다. 가장 최근 것 하나만 둔다
+const LS_BAK_REALIGN = "tadak-gagebu:docs.before-realign";
+function keepBeforeRealign() {
+  try { localStorage.setItem(LS_BAK_REALIGN, JSON.stringify({savedAt:new Date().toISOString(), count:totalCount(), settings:settings(), docs:S.docs})); return true; } catch (e) { return false; }
+}
 function applyImport() {
   const im = S.importData; if (!im) return;
+  if (totalCount() > 0 && !keepBeforeImport()) {
+    const err = $("bkErr"); if (err) { err.textContent = "지금 기록을 따로 보관하지 못해서 불러오기를 멈췄어요. 먼저 '백업 파일 저장'으로 지금 기록을 파일로 남겨 주세요."; err.hidden = false; }
+    return;
+  }
   const changes = {}, keys = new Set([...Object.keys(im.byKey), ...Object.keys(im.notes)]);
   for (const k of periodKeys()) if (!keys.has(k)) changes["periods/"+k] = null;
   for (const k of keys) changes["periods/"+k] = {key:k, note:im.notes[k]||"", entries:im.byKey[k]||[]};
-  if (Array.isArray(im.categories) && im.categories.length) changes["meta/categories"] = {items:im.categories};
+  if (im.categories) changes["meta/categories"] = {items:im.categories};
   if (im.settings) changes["meta/settings"] = {...DEFAULT_SETTINGS, ...im.settings};
+  // 가져온 기록도 가져온 설정의 월급날 기준 달로 맞춘다. 한 번에 저장해서 되돌리기도 한 번에 된다
+  const next = {...S.docs}; for (const [p, d] of Object.entries(changes)) { if (d == null) delete next[p]; else next[p] = d; }
+  const ra = realignChanges(next); Object.assign(changes, ra.changes);
   S.importData = null; S.firstRun = false;
-  commit(changes, `${im.entries.length}건을 가져왔어요`);
+  commit(changes, `${im.entries.length}건을 가져왔어요${ra.moved ? ` · ${ra.moved}건은 월급날 기준 달로 옮겼어요` : ""}`);
   markBackedUp();
 }
 
@@ -1418,7 +1598,7 @@ function bind() {
   $("nudgeLater").onclick = () => { local.meta.snoozeUntil = Date.now() + 2 * 864e5; saveMeta(); $("nudge").hidden = true; };
   addEventListener("beforeinstallprompt", e => { e.preventDefault(); S.installPrompt = e; if (S.view === "settings") render(); });
   if ("serviceWorker" in navigator && location.protocol.startsWith("http")) navigator.serviceWorker.register("sw.js").catch(() => {});
-  $("importFile").onchange = e => { const f = e.target.files[0]; if (f) readImport(f); e.target.value = ""; };
+  $("importFile").onchange = e => {  const f = e.target.files[0]; if (f) readImport(f); e.target.value = ""; };
   document.addEventListener("keydown", e => {
     const tg = e.target instanceof Element ? e.target : document.body;
     if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "z" && !tg.closest("input,textarea")) { e.preventDefault(); undo(); return; }
@@ -1474,7 +1654,7 @@ function playPreview(w) {
 }
 function settingsChange(e) {
   const id = e.target.id;
-  if (id === "sDay") { saveSettings({cycleStartDay:Number(e.target.value)}, `월급날을 ${e.target.value}일로 바꿨어요`); S.period = periodOf(new Date()); render(); return; }
+  if (id === "sDay") { saveSettings({cycleStartDay:Number(e.target.value)}, `월급날을 ${e.target.value}일로 바꿨어요`); return; } // 보이는 달은 saveSettings 가 다시 정한다
   if (id === "sRule") { saveSettings({holidayRule:e.target.value}, "월급날 규칙을 바꿨어요"); return; }
   if (id === "sGoal") { const v = Math.round(Number(String(e.target.value).replace(/[,\s]/g,""))); if (!(v > 0)) { $("goalErr").textContent = "목표는 1 이상의 숫자로 적어 주세요."; $("goalErr").hidden = false; return; } saveSettings({foodGoal:v}, "식비 목표를 바꿨어요"); }
   else if (id === "sFoodCat") saveSettings({foodCategoryId:e.target.value}, "목표 분류를 바꿨어요");
@@ -1490,6 +1670,8 @@ function settingsClick(e) {
   const b = e.target.closest("button"); if (!b) return;
   if (b.closest("#sTheme")) { saveSettings({theme:b.dataset.v}, `화면 테마를 '${THEMES.find(t => t[0] === b.dataset.v)[1]}'(으)로 바꿨어요`); return; }
   if (b.closest("#sCur")) { saveSettings({currency:b.dataset.v}, b.dataset.v === "KRW" ? "원(₩)으로 바꿨어요" : "엔(¥)으로 바꿨어요"); return; }
+  if (b.id === "impUndo") { if (!S.armRestore) { S.armRestore = true; render(); return; } S.armRestore = false; restoreBeforeImport(); return; }
+  if (b.id === "impUndoX") { S.armRestore = false; render(); return; }
   if (b.id === "persist") { askPersist().then(ok => { toast(ok ? "저장소 보호를 켰어요" : "이 브라우저는 저장소 보호를 허용하지 않았어요. 홈 화면에 추가하면 켜질 수 있어요", false); render(); }); return; }
   if (b.id === "autoOn") return connectAutoBackup();
   if (b.id === "autoRe") return reconnectAutoBackup();
