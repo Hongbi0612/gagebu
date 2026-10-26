@@ -705,13 +705,13 @@ function realignChanges(docs) {
   } finally { S.docs = keep; }
 }
 // 앱을 열 때·설정을 바꿨을 때 실행한다. 두 번 실행해도 결과가 같다(두 번째는 0건)
-function realignPeriods(prefix = "") {
+function realignPeriods(prefix = "", opts = {}) {
   if (S.dbState !== "ok") return 0;
   const r = realignChanges(S.docs); if (!r.moved) return 0;
   if (!keepBeforeRealign()) return 0;
   // 되돌리기 목록의 이전 상태는 옮기기 전 달 묶음이라, 되살리면 옮긴 기록이 두 달에 겹친다. 옮기면 되돌리기 목록을 비운다
   S.undo = [];
-  commit(r.changes, `${prefix}${r.moved}건을 월급날 기준 달로 옮겼어요`, {noUndo:true});
+  commit(r.changes, `${prefix}${r.moved}건을 월급날 기준 달로 옮겼어요`, {noUndo:true, quiet:!!opts.quiet});
   return r.moved;
 }
 
@@ -753,10 +753,19 @@ function paintSaveDot() {
   if (S.saveFailed) { dot.className = "dot off"; dot.title = $("syncState").textContent = "저장 실패"; }
   else if (S.dbState === "ok" && dot.classList.contains("off")) { dot.className = "dot"; dot.title = $("syncState").textContent = "저장됨"; }
 }
+// 넣기를 누른 순간 바로 저장 (I-06): 미뤄 둔 저장을 먼저 쓰고, 이 문서만 저장소에 넣는다. S.docs 는 commit 때 바뀐다
+function persistNow(path, data) {
+  if (S.dbState !== "ok") return;
+  flushSave();
+  const g = lsGet(LS_DOCS), fresh = g ? parseDocs(g.raw) : null; if (!fresh) return;
+  fresh[path] = data;
+  try { localStorage.setItem(LS_DOCS, JSON.stringify(fresh)); } catch (e) { setSaveFailed(true); }
+}
 function saveMeta() { try { localStorage.setItem(LS_META, JSON.stringify(local.meta)); } catch (e) {} }
 function commit(changes, label, opts = {}) {
+  // opts.prev: 되돌릴 때 쓸 이전 상태를 직접 줄 때 (넣기처럼 저장을 먼저 해 둔 경우)
   const prev = {};
-  for (const p of Object.keys(changes)) prev[p] = clone(S.docs[p] ?? null);
+  for (const p of Object.keys(changes)) prev[p] = opts.prev && p in opts.prev ? clone(opts.prev[p]) : clone(S.docs[p] ?? null);
   if (!opts.noUndo) { S.undo.push({prev, label}); if (S.undo.length > 100) S.undo.shift(); }
   for (const [p, d] of Object.entries(changes)) { if (d == null) delete S.docs[p]; else S.docs[p] = d; writeDoc(p, d); }
   render();
@@ -765,7 +774,10 @@ function commit(changes, label, opts = {}) {
 function undo() {
   const u = S.undo.pop(); if (!u) return;
   for (const [p, d] of Object.entries(u.prev)) { if (d == null) delete S.docs[p]; else S.docs[p] = d; writeDoc(p, d); }
-  S.editing = null; render(); toast("되돌렸어요: " + u.label, false);
+  S.editing = null;
+  // 되살린 기록이 예전 설정 기준의 달에 있을 수 있어서, 지금 설정 기준으로 조용히 다시 맞춘다 (I-07)
+  realignPeriods("", {quiet:true});
+  render(); toast("되돌렸어요: " + u.label, false);
 }
 async function connect() {
   const g = lsGet(LS_DOCS);
@@ -1016,7 +1028,9 @@ function submitEntry() {
   const k = targetPeriod(), now = new Date().toISOString();
   const entry = { id:newId(), date:$("fDate").value, type:S.type, category:S.type==="expense"?S.cat:null, isSpecial:S.type==="expense" && $("fSpecial").checked,
     memo:$("fMemo").value.trim(), amount:amt, payment:S.pay, periodKey:k, source:"app", original:"", createdAt:now, updatedAt:now };
+  const before = clone(S.docs["periods/"+k] ?? null);
   const doc = clone(periodDoc(k)); doc.key = k; doc.entries = [...(doc.entries||[]), entry];
+  persistNow("periods/"+k, doc); // 애니메이션 중에 앱을 닫아도 기록이 남게 (I-06)
   const page = entry.type === "expense" ? entry.category : entry.type === "saving" ? "saving" : entry.type === "investment" ? "investment" : "salary";
   const label = entry.type==="expense" ? `${catName(entry.category)} ${CUR()}${yen(amt)} 적었어요` : `${TYPE_NAME[entry.type]} ${CUR()}${yen(amt)} 넣었어요`;
   const goRect = $("goBtn").getBoundingClientRect();
@@ -1027,7 +1041,7 @@ function submitEntry() {
     const fromRect = entry.type === "income" || entry.type === "transfer" || !salaryTab ? goRect : salaryTab.getBoundingClientRect();
     S.page = page;
     if (entry.type !== "transfer") S.anim = {page, amount:amt, kind:"drop"};
-    commit({["periods/"+k]: doc}, label);
+    commit({["periods/"+k]: doc}, label, {prev:{["periods/"+k]: before}});
     fly(fromRect, page);
   };
   // 월급 포켓에서 나가는 돈이면: 먼저 월급 포켓에서 지폐가 빠져나가는 걸 보여준 뒤 옮긴다
@@ -1395,7 +1409,7 @@ function renderSettings() {
   right += `<div class="set-card"><h3>홈 화면에 추가</h3>${standalone ? `<div class="note">앱으로 설치되어 있어요.</div>` :
     ios ? `<div class="note">Safari 아래쪽 <b style="color:var(--ink)">공유 버튼 → 홈 화면에 추가</b>를 누르면 앱처럼 쓸 수 있어요. 아이폰은 홈 화면에 추가해야 기록이 더 오래 안전하게 보관돼요.</div>` :
     S.installPrompt ? `<div class="btns"><button class="btn primary" id="install">앱으로 설치</button></div>` : `<div class="note">브라우저 메뉴의 '앱 설치' 또는 '홈 화면에 추가'를 누르면 앱처럼 쓸 수 있어요.</div>`}</div>`;
-  right += `<div class="note" id="appVersion" style="text-align:center;margin-top:16px">버전 8 · 2026-10-02 · 9264af53</div>`;
+  right += `<div class="note" id="appVersion" style="text-align:center;margin-top:16px">버전 8 · 2026-10-23 · cdc61bc9</div>`;
   $("spread").innerHTML = page("left", left, "") + rings() + page("right", right, "");
 }
 const countCat = (id) => periodKeys().reduce((a,k) => a + entriesOf(k).filter(e => e.category === id).length, 0);
