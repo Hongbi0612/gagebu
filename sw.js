@@ -1,7 +1,7 @@
 // 타닥 가계부 서비스 워커: 앱 파일은 캐시해서 오프라인에서도 열리게 한다.
 // 기록은 브라우저 저장소에 있어서 여기서 다루지 않는다.
 // CACHE 이름은 scripts/build_public.py 가 빌드할 때마다 '버전-index.html 해시'로 바꿔 넣는다. 손으로 고치지 않는다.
-const CACHE = "tadak-gagebu-v8-cdc61bc9";
+const CACHE = "tadak-gagebu-v8-907bba50";
 const SHELL = ["./", "./index.html", "./manifest.webmanifest", "./icons/icon-192.png", "./icons/icon-512.png", "./icons/icon-180.png"];
 
 self.addEventListener("install", e => {

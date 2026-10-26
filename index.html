@@ -680,6 +680,26 @@ function totals(k) {
 }
 function cumulative(type, upto) { let s = 0; for (const k of periodKeys()) if (k <= upto) for (const e of entriesOf(k)) if (e.type === type) s += e.amount; return s; }
 
+// ---------- 문서 합치기 (S0.9) ----------
+// base 에서 mine 으로 바꾼 것만 theirs(지금 저장소·화면의 최신본) 위에 얹는다. 달 문서는 기록(id) 단위로 합친다
+// 다른 탭이 그 사이에 넣은 기록, 다른 탭에서 쓴 특이사항은 그대로 남는다
+const sameJson = (a, b) => JSON.stringify(a ?? null) === JSON.stringify(b ?? null);
+function mergeDoc(path, base, mine, theirs) {
+  if (sameJson(mine, base)) return theirs ?? null;   // 이 쪽에서 바꾼 것이 없다
+  if (!path.startsWith("periods/")) return mine ?? null; // 설정·분류는 이 쪽 것을 쓴다
+  const ents = d => (d && d.entries) || [];
+  const B = new Map(ents(base).map(e => [e.id, e])), M = new Map(ents(mine).map(e => [e.id, e]));
+  let out = ents(theirs).filter(e => !(B.has(e.id) && !M.has(e.id))); // 이 쪽에서 지운 기록은 뺀다
+  for (const [id, e] of M) {
+    if (B.has(id) && sameJson(B.get(id), e)) continue; // 이 쪽에서 안 바꾼 기록은 저쪽 것 그대로
+    const i = out.findIndex(x => x.id === id);
+    if (i < 0) out.push(e); else out[i] = e;
+  }
+  const note = (mine?.note ?? "") !== (base?.note ?? "") ? (mine?.note ?? "") : (theirs?.note ?? "");
+  if (!mine && !out.length && !note) return null; // 이 쪽에서 문서를 지웠고 남은 것이 없다
+  return {...(theirs || mine || base), key:path.slice(8), note, entries:out.map(clone)};
+}
+
 // ---------- 지난 기록을 월급날 기준 달로 맞추기 (S0.7) ----------
 // 수입이 아닌 기록 중, 날짜로 다시 계산한 달과 저장된 달이 다른 것을 옮긴다. 수입은 '○월분'을 직접 고를 수 있어서 그대로 둔다
 // docs 안의 설정(월급날·휴일 규칙)으로 계산해서 {changes, moved}를 돌려준다. docs 는 바꾸지 않는다
@@ -719,6 +739,8 @@ function realignPeriods(prefix = "", opts = {}) {
 const LS_DOCS = "tadak-gagebu:docs", LS_META = "tadak-gagebu:meta";
 const LS_BAK = "tadak-gagebu:docs.bak", LS_BROKEN = "tadak-gagebu:docs.broken";
 const local = { meta:{} };
+// 이 탭이 마지막으로 저장소와 맞춘 내용. 저장할 때 '이 탭이 바꾼 것'만 골라 저장소 최신본에 얹는 기준이 된다 (S0.9)
+let synced = {};
 // 저장소를 못 쓰면 null, 쓸 수 있으면 {raw}
 function lsGet(key) { try { return {raw: localStorage.getItem(key)}; } catch (e) { return null; } }
 // 기록 묶음으로 읽을 수 없으면(깨진 JSON, 객체가 아님) null
@@ -735,10 +757,12 @@ function flushSave() {
   const g = lsGet(LS_DOCS), fresh = g ? parseDocs(g.raw) : null, out = fresh || clone(S.docs);
   let elsewhere = false;
   if (fresh) for (const p of new Set([...Object.keys(fresh), ...Object.keys(S.docs)])) if (!dirty.has(p) && JSON.stringify(fresh[p]) !== JSON.stringify(S.docs[p])) { elsewhere = true; break; }
-  for (const p of dirty) { if (p in S.docs) out[p] = S.docs[p]; else delete out[p]; }
-  try { localStorage.setItem(LS_DOCS, JSON.stringify(out)); dirty.clear(); S.docs = out; setSaveFailed(false); }
+  // 이 탭이 바꾼 문서는 저장소 최신본에 '바꾼 것만' 얹는다. 다른 탭이 그 사이에 넣은 기록을 덮어쓰지 않는다 (I-08)
+  for (const p of dirty) { const d = fresh ? mergeDoc(p, synced[p], S.docs[p], fresh[p]) : S.docs[p]; if (d == null) delete out[p]; else out[p] = d; }
+  for (const p of dirty) if (!sameJson(out[p], S.docs[p])) elsewhere = true;
+  try { localStorage.setItem(LS_DOCS, JSON.stringify(out)); dirty.clear(); S.docs = out; synced = clone(out); setSaveFailed(false); }
   catch (e) { setSaveFailed(true); }
-  if (elsewhere) renderSoon();
+  if (elsewhere) renderExternal();
   autoBackupSoon(); checkNudge();
 }
 // 저장 실패: 상태 점을 빨갛게, 위에 안내. 다음 저장이 되면 풀린다
@@ -754,26 +778,39 @@ function paintSaveDot() {
   else if (S.dbState === "ok" && dot.classList.contains("off")) { dot.className = "dot"; dot.title = $("syncState").textContent = "저장됨"; }
 }
 // 넣기를 누른 순간 바로 저장 (I-06): 미뤄 둔 저장을 먼저 쓰고, 이 문서만 저장소에 넣는다. S.docs 는 commit 때 바뀐다
-function persistNow(path, data) {
+function persistNow(path, data, base) {
   if (S.dbState !== "ok") return;
   flushSave();
   const g = lsGet(LS_DOCS), fresh = g ? parseDocs(g.raw) : null; if (!fresh) return;
-  fresh[path] = data;
+  fresh[path] = mergeDoc(path, base, data, fresh[path]); // 넣는 기록만 저장소 최신본에 얹는다 (I-08)
   try { localStorage.setItem(LS_DOCS, JSON.stringify(fresh)); } catch (e) { setSaveFailed(true); }
+}
+// 다른 탭에서 바뀐 내용을 화면에 반영한다. 수정 창을 열어 두었거나 특이사항을 쓰는 중이면 그 입력이 지워지지 않게
+// 닫거나 칸을 벗어날 때까지 미룬다 (그때 어차피 다시 그린다)
+function renderExternal() {
+  const a = document.activeElement, typing = a && a.closest && a.closest("#spread") && a.matches("input,textarea,select");
+  if (S.editing || typing) { S.externalPending = true; return; }
+  S.externalPending = false; renderSoon();
 }
 function saveMeta() { try { localStorage.setItem(LS_META, JSON.stringify(local.meta)); } catch (e) {} }
 function commit(changes, label, opts = {}) {
   // opts.prev: 되돌릴 때 쓸 이전 상태를 직접 줄 때 (넣기처럼 저장을 먼저 해 둔 경우)
   const prev = {};
   for (const p of Object.keys(changes)) prev[p] = opts.prev && p in opts.prev ? clone(opts.prev[p]) : clone(S.docs[p] ?? null);
-  if (!opts.noUndo) { S.undo.push({prev, label}); if (S.undo.length > 100) S.undo.shift(); }
+  if (!opts.noUndo) { S.undo.push({prev, next:clone(changes), label}); if (S.undo.length > 100) S.undo.shift(); }
   for (const [p, d] of Object.entries(changes)) { if (d == null) delete S.docs[p]; else S.docs[p] = d; writeDoc(p, d); }
   render();
   if (label && !opts.quiet) toast(label, !opts.noUndo);
 }
 function undo() {
+  // 넣기·지우기 애니메이션 중이면 그 동작을 끝까지 되돌린다 (I-09)
+  if (S.pending) { const label = S.pending.label; S.pending.cancel(); S.editing = null; render(); toast("되돌렸어요: " + label, false); return; }
   const u = S.undo.pop(); if (!u) return;
-  for (const [p, d] of Object.entries(u.prev)) { if (d == null) delete S.docs[p]; else S.docs[p] = d; writeDoc(p, d); }
+  // 그 동작이 바꾼 것만 거꾸로 되돌린다. 그 뒤 다른 탭이 넣은 기록은 지우지 않는다 (I-08)
+  for (const [p, prevDoc] of Object.entries(u.prev)) {
+    const d = u.next ? mergeDoc(p, u.next[p], prevDoc, S.docs[p]) : prevDoc;
+    if (d == null) delete S.docs[p]; else S.docs[p] = d; writeDoc(p, d);
+  }
   S.editing = null;
   // 되살린 기록이 예전 설정 기준의 달에 있을 수 있어서, 지금 설정 기준으로 조용히 다시 맞춘다 (I-07)
   realignPeriods("", {quiet:true});
@@ -791,7 +828,7 @@ async function connect() {
     S.keepBanner = "저장된 기록을 읽지 못했어요(내용이 깨져 있었어요). 원래 내용은 이 기기에 따로 보관해 두었어요. 백업 파일이 있으면 불러와 주세요.";
     setBanner(S.keepBanner);
   }
-  S.docs = docs;
+  S.docs = docs; synced = clone(docs);
   local.meta = readLS(LS_META) || {};
   S.firstRun = !S.docs["meta/settings"];
   S.dbState = "ok";
@@ -802,8 +839,10 @@ async function connect() {
   addEventListener("storage", e => {
     if (e.key !== LS_DOCS || e.newValue == null) return;
     const fresh = parseDocs(e.newValue); if (!fresh) return;
-    for (const p of dirty) { if (p in S.docs) fresh[p] = S.docs[p]; else delete fresh[p]; }
-    S.docs = fresh; renderSoon();
+    // 아직 저장하지 않은 이 탭의 변경은 다른 탭의 최신본 위에 다시 얹어 둔다
+    const merged = clone(fresh);
+    for (const p of dirty) { const d = mergeDoc(p, synced[p], S.docs[p], fresh[p]); if (d == null) delete merged[p]; else merged[p] = d; }
+    synced = clone(fresh); S.docs = merged; renderExternal();
   });
   // 화면을 떠나거나 앱을 내릴 때 미뤄 둔 저장을 바로 한다
   addEventListener("pagehide", flushSave);
@@ -1030,7 +1069,7 @@ function submitEntry() {
     memo:$("fMemo").value.trim(), amount:amt, payment:S.pay, periodKey:k, source:"app", original:"", createdAt:now, updatedAt:now };
   const before = clone(S.docs["periods/"+k] ?? null);
   const doc = clone(periodDoc(k)); doc.key = k; doc.entries = [...(doc.entries||[]), entry];
-  persistNow("periods/"+k, doc); // 애니메이션 중에 앱을 닫아도 기록이 남게 (I-06)
+  persistNow("periods/"+k, doc, before); // 애니메이션 중에 앱을 닫아도 기록이 남게 (I-06)
   const page = entry.type === "expense" ? entry.category : entry.type === "saving" ? "saving" : entry.type === "investment" ? "investment" : "salary";
   const label = entry.type==="expense" ? `${catName(entry.category)} ${CUR()}${yen(amt)} 적었어요` : `${TYPE_NAME[entry.type]} ${CUR()}${yen(amt)} 넣었어요`;
   const goRect = $("goBtn").getBoundingClientRect();
@@ -1041,22 +1080,34 @@ function submitEntry() {
     const fromRect = entry.type === "income" || entry.type === "transfer" || !salaryTab ? goRect : salaryTab.getBoundingClientRect();
     S.page = page;
     if (entry.type !== "transfer") S.anim = {page, amount:amt, kind:"drop"};
-    commit({["periods/"+k]: doc}, label, {prev:{["periods/"+k]: before}});
+    // 애니메이션 사이에 다른 탭이 같은 달에 넣었을 수 있어서, 넣기 순간의 문서가 아니라 지금 문서에 이 기록만 얹는다 (I-08)
+    const cur = clone(periodDoc(k)), rest = (cur.entries || []).filter(x => x.id !== entry.id);
+    commit({["periods/"+k]: {...cur, key:k, entries:[...rest, entry]}}, label, {prev:{["periods/"+k]: S.docs["periods/"+k] ? {...cur, entries:rest} : null}});
     fly(fromRect, page);
   };
   // 월급 포켓에서 나가는 돈이면: 먼저 월급 포켓에서 지폐가 빠져나가는 걸 보여준 뒤 옮긴다
   const t = totals(k), leaving = ["expense","saving","investment"].includes(entry.type);
+  let timer = 0;
   const start = () => {
     if (leaving && !reduced() && t.income > 0 && t.remain > 0) {
       S.page = "salary"; S.anim = {page:"salary", amount:Math.min(amt, t.remain), kind:"leave"};
       render();
-      setTimeout(() => { S.busy = false; drop(); }, 620);
-    } else { S.busy = false; drop(); }
+      timer = setTimeout(() => { S.busy = false; S.pending = null; drop(); }, 620);
+    } else { S.busy = false; S.pending = null; drop(); }
   };
   S.busy = true;
+  // 애니메이션 중에 되돌리기를 누르면 이 넣기를 끝까지 되돌린다: 남은 애니메이션을 멈추고, 먼저 저장해 둔 기록도 지운다 (I-09)
+  S.pending = {label, cancel() {
+    clearTimeout(timer); S.busy = false; S.pending = null; S.anim = null;
+    const p = "periods/"+k, rest = (doc.entries || []).filter(x => x.id !== entry.id);
+    persistNow(p, {...doc, entries:rest}, doc);
+    const cur = S.docs[p]; // 그 사이 저장소에서 이 탭으로 이미 들어왔으면 화면 쪽에서도 뺀다
+    if (cur && (cur.entries || []).some(x => x.id === entry.id)) { S.docs[p] = {...cur, entries:cur.entries.filter(x => x.id !== entry.id)}; writeDoc(p, S.docs[p]); }
+  }};
+  $("undoBtn").disabled = false;
   // 폰에서는 계산기가 다이어리 아래에 있으니, 먼저 다이어리로 올라간 뒤 지폐를 움직인다
   const top = $("binder").getBoundingClientRect().top;
-  if (narrow() && top < -40) { $("binder").scrollIntoView({behavior: reduced() ? "auto" : "smooth", block:"start"}); setTimeout(start, reduced() ? 0 : 420); }
+  if (narrow() && top < -40) { $("binder").scrollIntoView({behavior: reduced() ? "auto" : "smooth", block:"start"}); timer = setTimeout(start, reduced() ? 0 : 420); }
   else start();
 }
 function billsFor(amount, max = 10) {
@@ -1084,7 +1135,7 @@ function render() {
   dot.className = "dot " + (S.dbState === "ok" ? "" : S.dbState === "none" ? "off" : "wait");
   const st = S.dbState === "ok" ? "저장됨" : S.dbState === "none" ? "저장 안 됨" : "불러오는 중";
   dot.title = st; $("syncState").textContent = st; paintSaveDot();
-  $("undoBtn").disabled = !S.undo.length;
+  $("undoBtn").disabled = !S.undo.length && !S.pending;
   // 설정(월급날·휴일 규칙)을 불러오기 전에는 기본값으로 계산되므로, 불러온 뒤 첫 화면에서 한 번 더 '오늘이 속한 달'을 정한다
   if (!S.period || !S.periodSet) { S.period = periodOf(new Date()); S.periodSet = S.dbState === "ok"; }
   $("pTitle").textContent = periodShort(S.period);
@@ -1298,7 +1349,8 @@ function deleteEntry(id, k) {
   if (S.busy) return;
   const doc = clone(periodDoc(k)); const e = doc.entries.find(x => x.id === id); if (!e) return;
   doc.entries = doc.entries.filter(x => x.id !== id); S.editing = null; S.armedDelete = null;
-  const done = () => { S.busy = false; commit({["periods/"+k]: doc}, `${CUR()}${yen(e.amount)} 기록을 지웠어요`); };
+  // 애니메이션 사이에 다른 탭이 바꿨을 수 있어서 지우는 순간의 문서에서 이 기록만 뺀다 (I-08)
+  const done = () => { S.busy = false; const cur = clone(periodDoc(k)); cur.entries = (cur.entries || []).filter(x => x.id !== id); commit({["periods/"+k]: cur}, `${CUR()}${yen(e.amount)} 기록을 지웠어요`); };
   // 지금 보이는 포켓에 들어 있던 돈이면 지폐가 빠져나가는 걸 먼저 보여준다
   const t = totals(k);
   const inPocket = S.view === "diary" && !e.isSpecial && (
@@ -1306,7 +1358,11 @@ function deleteEntry(id, k) {
     (S.page === e.category && e.type === "expense") || (S.page === e.type && (e.type === "saving" || e.type === "investment")));
   if (inPocket && !reduced()) {
     const shownAmt = S.page === "salary" ? Math.min(e.amount, t.remain) : e.amount;
-    S.busy = true; S.anim = {page:S.page, amount:shownAmt, kind:"leave"}; render(); setTimeout(done, 700);
+    S.busy = true; S.anim = {page:S.page, amount:shownAmt, kind:"leave"};
+    const timer = setTimeout(() => { S.pending = null; done(); }, 700);
+    // 애니메이션 중에 되돌리기를 누르면 지우기를 하지 않은 채로 끝낸다 (I-09)
+    S.pending = {label:`${CUR()}${yen(e.amount)} 기록을 지웠어요`, cancel() { clearTimeout(timer); S.busy = false; S.pending = null; S.anim = null; }};
+    render();
   } else done();
 }
 
@@ -1409,7 +1465,7 @@ function renderSettings() {
   right += `<div class="set-card"><h3>홈 화면에 추가</h3>${standalone ? `<div class="note">앱으로 설치되어 있어요.</div>` :
     ios ? `<div class="note">Safari 아래쪽 <b style="color:var(--ink)">공유 버튼 → 홈 화면에 추가</b>를 누르면 앱처럼 쓸 수 있어요. 아이폰은 홈 화면에 추가해야 기록이 더 오래 안전하게 보관돼요.</div>` :
     S.installPrompt ? `<div class="btns"><button class="btn primary" id="install">앱으로 설치</button></div>` : `<div class="note">브라우저 메뉴의 '앱 설치' 또는 '홈 화면에 추가'를 누르면 앱처럼 쓸 수 있어요.</div>`}</div>`;
-  right += `<div class="note" id="appVersion" style="text-align:center;margin-top:16px">버전 8 · 2026-10-23 · cdc61bc9</div>`;
+  right += `<div class="note" id="appVersion" style="text-align:center;margin-top:16px">버전 8 · 2026-10-26 · 907bba50</div>`;
   $("spread").innerHTML = page("left", left, "") + rings() + page("right", right, "");
 }
 const countCat = (id) => periodKeys().reduce((a,k) => a + entriesOf(k).filter(e => e.category === id).length, 0);
