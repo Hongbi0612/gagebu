@@ -760,6 +760,12 @@ function flushSave() {
   // 이 탭이 바꾼 문서는 저장소 최신본에 '바꾼 것만' 얹는다. 다른 탭이 그 사이에 넣은 기록을 덮어쓰지 않는다 (I-08)
   for (const p of dirty) { const d = fresh ? mergeDoc(p, synced[p], S.docs[p], fresh[p]) : S.docs[p]; if (d == null) delete out[p]; else out[p] = d; }
   for (const p of dirty) if (!sameJson(out[p], S.docs[p])) elsewhere = true;
+  // 같은 기록(id)이 두 달 문서에 있으면 이 탭이 쓴 쪽을 남긴다. 다른 탭이 그 기록을 다른 달로 옮긴 직후에 이 탭이 고친 경우 (I-10)
+  const mine = new Set();
+  for (const p of dirty) if (p.startsWith("periods/") && out[p]) for (const e of out[p].entries || []) mine.add(e.id);
+  for (const p of Object.keys(out)) if (p.startsWith("periods/") && !dirty.has(p) && (out[p]?.entries || []).some(e => mine.has(e.id))) {
+    out[p] = {...out[p], entries:out[p].entries.filter(e => !mine.has(e.id))}; elsewhere = true;
+  }
   try { localStorage.setItem(LS_DOCS, JSON.stringify(out)); dirty.clear(); S.docs = out; synced = clone(out); setSaveFailed(false); }
   catch (e) { setSaveFailed(true); }
   if (elsewhere) renderExternal();
@@ -1323,8 +1329,22 @@ function editPanel(e, k) {
     <div class="btns"><button class="btn primary" type="submit">저장</button><button class="btn" type="button" data-close>닫기</button><button class="btn danger ${armed?"armed":""}" type="button" data-del>${armed?"한 번 더 누르면 삭제":"삭제"}</button></div>
   </form>`;
 }
+// 기록이 지금 어느 달 문서에 있는지 id 로 찾는다. 수정 창을 연 뒤 다른 탭의 설정 변경으로 다른 달로 옮겨졌을 수 있다 (I-10)
+function findEntryKey(id, hint) {
+  if (entriesOf(hint).some(e => e.id === id)) return hint;
+  return periodKeys().find(k => entriesOf(k).some(e => e.id === id)) || null;
+}
+// 수정 창을 연 뒤 다른 탭에서 지운 기록: 되살리지 않고 창을 닫는다
+function goneEntry(msg = "다른 창에서 지운 기록이라 저장하지 않았어요") { S.editing = null; S.armedDelete = null; render(); toast(msg, false); }
+// 수정 창의 '삭제' 첫 누름(확인 단계): 그 사이 다른 탭이 기록을 옮겼으면 그 달로 가서 창을 다시 보여 주고, 지웠으면 창을 닫는다 (I-10)
+function armDelete(id, hint) {
+  const k = findEntryKey(id, hint);
+  if (!k) return goneEntry("다른 창에서 이미 지운 기록이에요");
+  S.period = k; S.armedDelete = id; render();
+}
 function saveEdit(form) {
-  const id = form.dataset.form, k = form.dataset.k, fd = new FormData(form);
+  const id = form.dataset.form, fd = new FormData(form), k = findEntryKey(id, form.dataset.k);
+  if (!k) return goneEntry();
   const doc = clone(periodDoc(k)); const i = doc.entries.findIndex(e => e.id === id); if (i < 0) return;
   const raw = String(fd.get("amount")).replace(/[,\s¥₩]/g,"").replace(/×/g,"*").replace(/÷/g,"/").replace(/−/g,"-");
   const amount = /^[\d+\-*/]+$/.test(raw) ? Math.round(evalExpr(raw)) : NaN;
@@ -1347,6 +1367,7 @@ function saveEdit(form) {
 }
 function deleteEntry(id, k) {
   if (S.busy) return;
+  k = findEntryKey(id, k); if (!k) return goneEntry("다른 창에서 이미 지운 기록이에요"); // 다른 탭에서 옮겼거나 지웠을 수 있다 (I-10)
   const doc = clone(periodDoc(k)); const e = doc.entries.find(x => x.id === id); if (!e) return;
   doc.entries = doc.entries.filter(x => x.id !== id); S.editing = null; S.armedDelete = null;
   // 애니메이션 사이에 다른 탭이 바꿨을 수 있어서 지우는 순간의 문서에서 이 기록만 뺀다 (I-08)
@@ -1465,7 +1486,7 @@ function renderSettings() {
   right += `<div class="set-card"><h3>홈 화면에 추가</h3>${standalone ? `<div class="note">앱으로 설치되어 있어요.</div>` :
     ios ? `<div class="note">Safari 아래쪽 <b style="color:var(--ink)">공유 버튼 → 홈 화면에 추가</b>를 누르면 앱처럼 쓸 수 있어요. 아이폰은 홈 화면에 추가해야 기록이 더 오래 안전하게 보관돼요.</div>` :
     S.installPrompt ? `<div class="btns"><button class="btn primary" id="install">앱으로 설치</button></div>` : `<div class="note">브라우저 메뉴의 '앱 설치' 또는 '홈 화면에 추가'를 누르면 앱처럼 쓸 수 있어요.</div>`}</div>`;
-  right += `<div class="note" id="appVersion" style="text-align:center;margin-top:16px">버전 8 · 2026-10-26 · 907bba50</div>`;
+  right += `<div class="note" id="appVersion" style="text-align:center;margin-top:16px">버전 8 · 2026-10-26 · 4a0b50e7</div>`;
   $("spread").innerHTML = page("left", left, "") + rings() + page("right", right, "");
 }
 const countCat = (id) => periodKeys().reduce((a,k) => a + entriesOf(k).filter(e => e.category === id).length, 0);
@@ -1642,7 +1663,7 @@ function bind() {
     const form = e.target.closest("form.edit");
     if (form) {
       if (e.target.closest("[data-close]")) { S.editing = null; render(); }
-      else if (e.target.closest("[data-del]")) { if (S.armedDelete === form.dataset.form) deleteEntry(form.dataset.form, form.dataset.k); else { S.armedDelete = form.dataset.form; render(); } }
+      else if (e.target.closest("[data-del]")) { if (S.armedDelete === form.dataset.form) deleteEntry(form.dataset.form, form.dataset.k); else armDelete(form.dataset.form, form.dataset.k); }
       return;
     }
     const bar = e.target.closest("[data-pk]"); if (bar) { S.period = bar.dataset.pk; render(); return; }
