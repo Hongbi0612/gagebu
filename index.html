@@ -1160,6 +1160,15 @@ function render() {
   if (S.view === "diary") renderDiary();
   else if (S.view === "summary") renderSummary();
   else renderSettings();
+  // 수정 창을 연 기록이 다시 그린 화면에 없으면(다른 탭이 옮기거나 지움) 그 기록이 보이게 맞추고, 그래도 없으면 알리고 닫는다 (I-12)
+  if (S.editing && S.view !== "settings" && !$("spread").querySelector(`form.edit[data-form="${CSS.escape(S.editing)}"]`)) {
+    const id = S.editing;
+    if (S.revealing) { S.revealFailed = true; return; } // 맞춘 뒤 다시 그렸는데도 없으면 바깥에서 닫는다
+    if (revealEntry(id)) { S.revealing = true; S.revealFailed = false; try { render(); } finally { S.revealing = false; } if (!S.revealFailed) return; }
+    S.editing = null; S.armedDelete = null; render();
+    toast(findEntryKey(id, S.period) ? "그 기록을 화면에서 찾지 못해 수정 창을 닫았어요" : "다른 창에서 이미 지운 기록이에요", false);
+    return;
+  }
   if (S.anim) S.animLockUntil = Date.now() + 1100;
   S.anim = null;
 }
@@ -1291,7 +1300,7 @@ function renderDiary() {
 function recordList(list, {showCat = false, k, title}) {
   let h = `<div class="h" style="font-size:24px;margin-top:10px">${esc(title)}</div>`;
   if (!list.length) return h + `<div class="empty">아직 적힌 게 없어요<br>계산기로 첫 금액을 넣어보세요 ✎</div>`;
-  const sorted = list.slice().sort((a,b) => b.date.localeCompare(a.date) || (b.createdAt||b.id).localeCompare(a.createdAt||a.id));
+  const sorted = list.slice().sort(SORT_RECS);
   h += `<div class="cols"><span>choose the date<br>and day of the week</span><span>cash or<br>card ?</span><span></span><span></span></div><div class="recs">`;
   let last = "";
   const LIMIT = 5, cut = narrow() && !S.showAll && sorted.length > LIMIT;
@@ -1338,26 +1347,60 @@ function findEntryKey(id, hint) {
 function goneEntry(msg = "다른 창에서 지운 기록이라 저장하지 않았어요") { S.editing = null; S.armedDelete = null; render(); toast(msg, false); }
 // 수정 창의 '삭제' 첫 누름(확인 단계): 그 사이 다른 탭이 기록을 옮겼으면 그 달로 가서 창을 다시 보여 주고, 지웠으면 창을 닫는다 (I-10)
 function armDelete(id, hint) {
-  const k = findEntryKey(id, hint);
-  if (!k) return goneEntry("다른 창에서 이미 지운 기록이에요");
-  S.period = k; S.armedDelete = id; render();
+  if (!findEntryKey(id, hint)) return goneEntry("다른 창에서 이미 지운 기록이에요");
+  S.armedDelete = id; revealEntry(id); render();
+}
+// 수정 창을 연 기록이 화면에 보이도록 달·포켓 탭·'더 보기'를 맞춘다. 이미 보이면 아무것도 바꾸지 않는다 (I-12)
+// 다른 탭이 그 기록의 달·분류·날짜를 바꿨을 수 있다. 찾지 못하면 false
+const SORT_RECS = (a,b) => b.date.localeCompare(a.date) || (b.createdAt||b.id).localeCompare(a.createdAt||a.id);
+function pageEntries(k, page) {
+  const list = entriesOf(k);
+  if (page === "salary") return list;
+  if (page === "saving" || page === "investment") return list.filter(e => e.type === page);
+  return list.filter(e => e.type === "expense" && e.category === page);
+}
+function revealEntry(id) {
+  const k = findEntryKey(id, S.period); if (!k) return false;
+  const e = entriesOf(k).find(x => x.id === id);
+  S.period = k; S.view = S.view === "summary" && e.isSpecial ? "summary" : "diary";
+  if (S.view === "diary") {
+    if (!pageEntries(k, S.page).some(x => x.id === id)) S.page = e.type === "expense" ? e.category : (e.type === "saving" || e.type === "investment") ? e.type : "salary";
+    const sorted = pageEntries(k, S.page).slice().sort(SORT_RECS);
+    if (narrow() && sorted.findIndex(x => x.id === id) >= 5) S.showAll = true;
+  }
+  return true;
 }
 function saveEdit(form) {
   const id = form.dataset.form, fd = new FormData(form), k = findEntryKey(id, form.dataset.k);
   if (!k) return goneEntry();
   const doc = clone(periodDoc(k)); const i = doc.entries.findIndex(e => e.id === id); if (i < 0) return;
-  const raw = String(fd.get("amount")).replace(/[,\s¥₩]/g,"").replace(/×/g,"*").replace(/÷/g,"/").replace(/−/g,"-");
-  const amount = /^[\d+\-*/]+$/.test(raw) ? Math.round(evalExpr(raw)) : NaN;
-  const errEl = form.querySelector("[data-err]");
+  // 이 창에서 직접 바꾼 칸만 내 값으로 저장하고, 건드리지 않은 칸은 저장 직전의 최신 기록 값을 따른다 (I-11)
+  // 창을 연 뒤 다른 탭이 그 기록의 다른 칸(예: 수입 '○월분')을 바꿨어도 덮어쓰지 않는다
+  const el = (n) => form.elements[n];
+  const changed = (n) => { const x = el(n); if (!x) return false;
+    if (x.type === "checkbox") return x.checked !== x.defaultChecked;
+    if (x.tagName === "SELECT") { const d0 = [...x.options].find(o => o.defaultSelected) || x.options[0]; return x.value !== (d0 ? d0.value : ""); }
+    return x.value !== x.defaultValue; };
+  const old = doc.entries[i], errEl = form.querySelector("[data-err]");
+  let amount = old.amount;
+  if (changed("amount")) {
+    const raw = String(fd.get("amount")).replace(/[,\s¥₩]/g,"").replace(/×/g,"*").replace(/÷/g,"/").replace(/−/g,"-");
+    amount = /^[\d+\-*/]+$/.test(raw) ? Math.round(evalExpr(raw)) : NaN;
+  }
   if (!(amount > 0)) { errEl.textContent = "금액은 1 이상의 숫자로 적어 주세요. (예: 3490+1001)"; errEl.hidden = false; return; }
-  const date = fd.get("date"); if (!date) { errEl.textContent = "날짜를 골라 주세요."; errEl.hidden = false; return; }
-  const type = fd.get("type"), old = doc.entries[i];
-  const e = {...old, date, type, amount, memo:String(fd.get("memo")||"").trim(), payment:fd.get("payment")||null,
-    category: type==="expense" ? (fd.get("category") || old.category || "other") : null,
-    isSpecial: type==="expense" && fd.get("isSpecial")==="on", updatedAt:new Date().toISOString()};
+  const date = changed("date") ? fd.get("date") : old.date; if (!date) { errEl.textContent = "날짜를 골라 주세요."; errEl.hidden = false; return; }
+  const type = changed("type") ? fd.get("type") : old.type;
+  const e = {...old, date, type, amount, updatedAt:new Date().toISOString(),
+    memo: changed("memo") ? String(fd.get("memo")||"").trim() : old.memo,
+    payment: changed("payment") ? fd.get("payment")||null : old.payment,
+    category: type==="expense" ? ((changed("category") || changed("type") ? fd.get("category") : old.category) || old.category || fd.get("category") || "other") : null,
+    isSpecial: type==="expense" && (changed("isSpecial") ? fd.get("isSpecial")==="on" : !!old.isSpecial)};
   const d = parseISO(date);
   let nk = periodOf(d);
-  if (type === "income" && old.type === "income" && old.date === date && fd.get("periodKey")) nk = fd.get("periodKey");
+  if (type === "income") {
+    if (changed("periodKey") && fd.get("periodKey")) nk = fd.get("periodKey");        // '○월분'을 직접 고름
+    else if (old.type === "income" && !changed("date") && !changed("type")) nk = k;   // 그대로 두면 지금 있는 달 (다른 탭이 옮겼어도)
+  }
   e.periodKey = nk;
   const changes = {};
   if (nk === k) { doc.entries[i] = e; changes["periods/"+k] = doc; }
@@ -1486,7 +1529,7 @@ function renderSettings() {
   right += `<div class="set-card"><h3>홈 화면에 추가</h3>${standalone ? `<div class="note">앱으로 설치되어 있어요.</div>` :
     ios ? `<div class="note">Safari 아래쪽 <b style="color:var(--ink)">공유 버튼 → 홈 화면에 추가</b>를 누르면 앱처럼 쓸 수 있어요. 아이폰은 홈 화면에 추가해야 기록이 더 오래 안전하게 보관돼요.</div>` :
     S.installPrompt ? `<div class="btns"><button class="btn primary" id="install">앱으로 설치</button></div>` : `<div class="note">브라우저 메뉴의 '앱 설치' 또는 '홈 화면에 추가'를 누르면 앱처럼 쓸 수 있어요.</div>`}</div>`;
-  right += `<div class="note" id="appVersion" style="text-align:center;margin-top:16px">버전 8 · 2026-10-26 · 4a0b50e7</div>`;
+  right += `<div class="note" id="appVersion" style="text-align:center;margin-top:16px">버전 8 · 2026-10-27 · 23568a68</div>`;
   $("spread").innerHTML = page("left", left, "") + rings() + page("right", right, "");
 }
 const countCat = (id) => periodKeys().reduce((a,k) => a + entriesOf(k).filter(e => e.category === id).length, 0);
@@ -1657,7 +1700,7 @@ function bind() {
   $("tabs").onclick = e => { const b = e.target.closest(".tab[data-p]"); if (!b) return; S.page = b.dataset.p; S.editing = null; S.showAll = false; render(); };
   const sp = $("spread");
   sp.addEventListener("click", e => {
-    if (e.target.closest("[data-more]")) { S.showAll = !S.showAll; render(); return; }
+    if (e.target.closest("[data-more]")) { S.showAll = !S.showAll; if (!S.showAll) { S.editing = null; S.armedDelete = null; } render(); return; }
     const row = e.target.closest("[data-edit]");
     if (row) { S.editing = S.editing === row.dataset.edit ? null : row.dataset.edit; S.armedDelete = null; render(); return; }
     const form = e.target.closest("form.edit");
